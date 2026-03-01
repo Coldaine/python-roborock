@@ -29,6 +29,17 @@ The following commands will be executed sequentially using the device ID `7FjpPF
 - `roborock dnd`: Do Not Disturb schedule.
 - `roborock led_status` / `flow_led_status`: Current LED indicator preferences.
 
+### 5. Advanced Raw API Polling (Read-Only)
+Because the Curv 2 Flow has advanced docking and mopping capabilities not fully covered by the top-level CLI shortcuts, we will use the raw command interface to safely query specific states:
+- `roborock command --device_id <id> --cmd get_dust_collection_mode`
+- `roborock command --device_id <id> --cmd get_wash_towel_mode`
+- `roborock command --device_id <id> --cmd get_smart_wash_params`
+- `roborock command --device_id <id> --cmd get_carpet_mode`
+- `roborock command --device_id <id> --cmd get_carpet_clean_mode`
+- `roborock command --device_id <id> --cmd get_water_box_custom_mode`
+- `roborock command --device_id <id> --cmd get_camera_status`
+- `roborock command --device_id <id> --cmd get_fw_features`
+
 ---
 
 ## Phase 2: Red Zone (Do Not Touch)
