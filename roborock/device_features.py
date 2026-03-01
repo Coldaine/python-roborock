@@ -98,6 +98,7 @@ class ProductFeatures(StrEnum):
     MOP_ELECTRONIC_MODULE = "mop_electronic_module"
     MOP_SHAKE_MODULE = "mop_shake_module"
     MOP_SPIN_MODULE = "mop_spin_module"
+    MOP_ROLLER_MODULE = "mop_roller_module"  # SpiraFlow roller mop (Qrevo Curv 2 Flow and newer)
     DEFAULT_MAP3D = "map3d"
     DEFAULT_CLEANMODECUSTOM = "custom_cleanmode"
     REALTIMEVIDEO = "realtimevideo"
@@ -537,6 +538,7 @@ class DeviceFeatures(RoborockBase):
                 ProductFeatures.MOP_ELECTRONIC_MODULE,
                 ProductFeatures.MOP_SHAKE_MODULE,
                 ProductFeatures.MOP_SPIN_MODULE,
+                ProductFeatures.MOP_ROLLER_MODULE,
             ]
         }
     )
@@ -547,11 +549,23 @@ class DeviceFeatures(RoborockBase):
         metadata={"product_features": [ProductFeatures.CLEANMODE_NONE_PURECLEANMOP_WITH_MAXPLUS]}
     )
     is_clean_route_setting_supported: bool = field(
-        metadata={"product_features": [ProductFeatures.MOP_SHAKE_MODULE, ProductFeatures.MOP_SPIN_MODULE]}
+        metadata={
+            "product_features": [
+                ProductFeatures.MOP_SHAKE_MODULE,
+                ProductFeatures.MOP_SPIN_MODULE,
+                ProductFeatures.MOP_ROLLER_MODULE,
+            ]
+        }
     )
     is_mop_shake_module_supported: bool = field(metadata={"product_features": [ProductFeatures.MOP_SHAKE_MODULE]})
     is_customized_clean_supported: bool = field(
-        metadata={"product_features": [ProductFeatures.MOP_SHAKE_MODULE, ProductFeatures.MOP_SPIN_MODULE]}
+        metadata={
+            "product_features": [
+                ProductFeatures.MOP_SHAKE_MODULE,
+                ProductFeatures.MOP_SPIN_MODULE,
+                ProductFeatures.MOP_ROLLER_MODULE,
+            ]
+        }
     )
 
     # Raw feature info values from get_init_status for diagnostics
@@ -661,6 +675,7 @@ WASH_N_FILL_DOCK_TYPES = [
     RoborockDockTypeCode.qrevo_s_dock,
     RoborockDockTypeCode.saros_r10_dock,
     RoborockDockTypeCode.qrevo_curv_dock,
+    RoborockDockTypeCode.saros_10_dock,  # Bug fix: Saros 10 has wash+fill dock; was accidentally omitted
 ]
 
 

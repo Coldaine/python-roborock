@@ -12,9 +12,12 @@ from roborock.const import (
     MOP_ROLLER_REPLACE_TIME,
     NO_MAP,
     ROBOROCK_G10S_PRO,
+    ROBOROCK_G20S_Ultra,
     ROBOROCK_P10,
     ROBOROCK_Q7_MAX,
     ROBOROCK_QREVO_CURV,
+    ROBOROCK_QREVO_CURV_A155,
+    ROBOROCK_QREVO_CURV_A156,
     ROBOROCK_QREVO_MASTER,
     ROBOROCK_QREVO_MAXV,
     ROBOROCK_QREVO_PRO,
@@ -31,10 +34,11 @@ from roborock.const import (
     ROBOROCK_S8_PRO_ULTRA,
     ROBOROCK_SAROS_10,
     ROBOROCK_SAROS_10R,
+    ROBOROCK_VIVIAN_C_A158,
+    ROBOROCK_VIVIAN_C_A159,
     SENSOR_DIRTY_REPLACE_TIME,
     SIDE_BRUSH_REPLACE_TIME,
     STRAINER_REPLACE_TIME,
-    ROBOROCK_G20S_Ultra,
 )
 from roborock.exceptions import RoborockException
 
@@ -550,6 +554,15 @@ ModelStatus: dict[str, type[Status]] = {
     ROBOROCK_S8_MAXV_ULTRA: S8MaxvUltraStatus,
     ROBOROCK_SAROS_10R: Saros10RStatus,
     ROBOROCK_SAROS_10: Saros10Status,
+    # Unconfirmed Vivian-series models — mapped to QRevoCurvStatus as best guess.
+    # TODO: replace with device-specific Status subclasses once `roborock list-devices`
+    #       confirms which of these is the Qrevo Curv 2 Flow and supplies featureSet data.
+    ROBOROCK_QREVO_CURV_A155: QRevoCurvStatus,
+    ROBOROCK_QREVO_CURV_A156: QRevoCurvStatus,
+    # VivianC variants (a158/a159) — single-line camera, spin-mop configuration.
+    # Mapped to QRevoCurvStatus until specific enum data is available from device owners.
+    ROBOROCK_VIVIAN_C_A158: QRevoCurvStatus,
+    ROBOROCK_VIVIAN_C_A159: QRevoCurvStatus,
 }
 
 

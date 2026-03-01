@@ -54,6 +54,17 @@ ROBOROCK_QREVO_MAXV = "roborock.vacuum.a87"
 ROBOROCK_SAROS_10R = "roborock.vacuum.a144"
 ROBOROCK_SAROS_10 = "roborock.vacuum.a147"
 
+# Vivian series — a155/a156 slots reserved in VIVIAN product group.
+# One of these is likely the Qrevo Curv 2 Flow (CES 2026); confirm with `roborock list-devices`.
+# TODO: rename once model ID is confirmed from device data.
+ROBOROCK_QREVO_CURV_A155 = "roborock.vacuum.a155"  # Unconfirmed — possible Qrevo Curv 2 Flow (CN)
+ROBOROCK_QREVO_CURV_A156 = "roborock.vacuum.a156"  # Unconfirmed — possible Qrevo Curv 2 Flow
+
+# VivianC series (a158/a159) — single-line camera, spin-mop, max_plus clean mode.
+# Model names unconfirmed; update once device data is available.
+ROBOROCK_VIVIAN_C_A158 = "roborock.vacuum.a158"
+ROBOROCK_VIVIAN_C_A159 = "roborock.vacuum.a159"
+
 ROBOROCK_DYAD_AIR = "roborock.wetdryvac.a107"
 ROBOROCK_DYAD_PRO_COMBO = "roborock.wetdryvac.a83"
 ROBOROCK_DYAD_PRO = "roborock.wetdryvac.a56"
