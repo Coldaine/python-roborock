@@ -191,6 +191,7 @@ _BASE_PRODUCT_FEATURE_MAP: dict[RoborockProductNickname, list[ProductFeatures]] 
     RoborockProductNickname.PEARLS: PEARL_FEATURES,
     RoborockProductNickname.PEARLPLUS: PEARL_PLUS_FEATURES,
     RoborockProductNickname.VIVIAN: PEARL_PLUS_FEATURES,
+    RoborockProductNickname.VIVIANS: PEARL_PLUS_FEATURES + [ProductFeatures.MOP_ROLLER_MODULE],  # Curv 2 Flow with SpiraFlow roller mop
     RoborockProductNickname.CORAL: PEARL_PLUS_FEATURES,
     RoborockProductNickname.ULTRON: ULTRON_FEATURES,
     RoborockProductNickname.ULTRONE: [ProductFeatures.CLEANMODE_NONE_PURECLEANMOP_WITH_MAXPLUS],
@@ -676,6 +677,7 @@ WASH_N_FILL_DOCK_TYPES = [
     RoborockDockTypeCode.saros_r10_dock,
     RoborockDockTypeCode.qrevo_curv_dock,
     RoborockDockTypeCode.saros_10_dock,  # Bug fix: Saros 10 has wash+fill dock; was accidentally omitted
+    RoborockDockTypeCode.qrevo_curv_2_flow_dock,
 ]
 
 

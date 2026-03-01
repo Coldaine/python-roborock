@@ -44,7 +44,7 @@ from pyshark.packet.packet import Packet  # type: ignore
 from roborock import RoborockCommand
 from roborock.data import RoborockBase, UserData
 from roborock.data.b01_q10.b01_q10_code_mappings import B01_Q10_DP, YXCleanType, YXFanLevel
-from roborock.data.code_mappings import SHORT_MODEL_TO_ENUM
+from roborock.data.code_mappings import SHORT_MODEL_TO_ENUM, RoborockProductNickname
 from roborock.device_features import DeviceFeatures
 from roborock.devices.cache import Cache, CacheData
 from roborock.devices.device import RoborockDevice
@@ -1080,11 +1080,13 @@ def update_docs(data_file: str, output_file: str):
     # Process the raw data from YAML to build the feature map
     for model, data in product_data_from_yaml.items():
         # Reconstruct the DeviceFeatures object from the raw data in the YAML file
+        product_nickname_str = data.get("product_nickname")
+        product_nickname = RoborockProductNickname[product_nickname_str] if product_nickname_str else None
         device_features = DeviceFeatures.from_feature_flags(
             new_feature_info=data.get("new_feature_info"),
             new_feature_info_str=data.get("new_feature_info_str"),
             feature_info=data.get("feature_info"),
-            product_nickname=data.get("product_nickname"),
+            product_nickname=product_nickname,
         )
         features_dict = asdict(device_features)
 
@@ -1099,6 +1101,9 @@ def update_docs(data_file: str, output_file: str):
         # Populate features from the calculated DeviceFeatures object
         for feature, is_supported in features_dict.items():
             all_feature_names.add(feature)
+            if feature in current_product_data:
+                # Skip populating the metadata keys as booleans, as they are already set.
+                continue
             if is_supported:
                 current_product_data[feature] = "X"
 

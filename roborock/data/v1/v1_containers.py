@@ -18,6 +18,7 @@ from roborock.const import (
     ROBOROCK_QREVO_CURV,
     ROBOROCK_QREVO_CURV_A155,
     ROBOROCK_QREVO_CURV_A156,
+    ROBOROCK_QREVO_CURV_2_FLOW,
     ROBOROCK_QREVO_MASTER,
     ROBOROCK_QREVO_MAXV,
     ROBOROCK_QREVO_PRO,
@@ -456,6 +457,20 @@ class QRevoCurvStatus(Status):
 
 
 @dataclass
+class QRevoCurv2FlowStatus(Status):
+    """Status for Roborock Qrevo Curv 2 Flow (roborock.vacuum.a245).
+
+    Fan/mop/water codes confirmed via live device probe (dock type 29).
+    Uses same enum classes as QRevoCurv; roller mop hardware confirmed by
+    moprollerWorkTime in consumables response.
+    """
+
+    fan_power: RoborockFanSpeedQRevoCurv | None = None
+    water_box_mode: RoborockMopIntensityQRevoCurv | None = None
+    mop_mode: RoborockMopModeQRevoCurv | None = None
+
+
+@dataclass
 class QRevoMaxVStatus(Status):
     fan_power: RoborockFanSpeedQRevoMaxV | None = None
     water_box_mode: RoborockMopIntensityQRevoMaxV | None = None
@@ -535,6 +550,7 @@ ModelStatus: dict[str, type[Status]] = {
     ROBOROCK_Q7_MAX: Q7MaxStatus,
     ROBOROCK_QREVO_MASTER: QRevoMasterStatus,
     ROBOROCK_QREVO_CURV: QRevoCurvStatus,
+    ROBOROCK_QREVO_CURV_2_FLOW: QRevoCurv2FlowStatus,
     ROBOROCK_S6: S6PureStatus,
     ROBOROCK_S6_MAXV: S6MaxVStatus,
     ROBOROCK_S6_PURE: S6PureStatus,
@@ -554,9 +570,8 @@ ModelStatus: dict[str, type[Status]] = {
     ROBOROCK_S8_MAXV_ULTRA: S8MaxvUltraStatus,
     ROBOROCK_SAROS_10R: Saros10RStatus,
     ROBOROCK_SAROS_10: Saros10Status,
-    # Unconfirmed Vivian-series models — mapped to QRevoCurvStatus as best guess.
-    # TODO: replace with device-specific Status subclasses once `roborock list-devices`
-    #       confirms which of these is the Qrevo Curv 2 Flow and supplies featureSet data.
+    # Unconfirmed Vivian-series a155/a156 — mapped to QRevoCurvStatus as best guess.
+    # a245 (Qrevo Curv 2 Flow) is confirmed separately above; these are different models.
     ROBOROCK_QREVO_CURV_A155: QRevoCurvStatus,
     ROBOROCK_QREVO_CURV_A156: QRevoCurvStatus,
     # VivianC variants (a158/a159) — single-line camera, spin-mop configuration.

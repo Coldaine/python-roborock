@@ -134,7 +134,7 @@ class RoborockProductNickname(Enum):
     PEARLC = ProductInfo(nickname="PearlC", short_models=("a103", "a104"))
     PEARLE = ProductInfo(nickname="PearlE", short_models=("a167", "a168"))
     PEARLELITE = ProductInfo(nickname="PearlELite", short_models=("a169", "a170"))
-    PEARLPLUS = ProductInfo(nickname="PearlPlus", short_models=("a86", "a87", "a245"))
+    PEARLPLUS = ProductInfo(nickname="PearlPlus", short_models=("a86", "a87"))
     PEARLPLUSS = ProductInfo(nickname="PearlPlusS", short_models=("a116", "a117", "a136"))
     PEARLS = ProductInfo(nickname="PearlS", short_models=("a100", "a101"))
     PEARLSLITE = ProductInfo(nickname="PearlSLite", short_models=("a122", "a123"))
@@ -177,6 +177,7 @@ class RoborockProductNickname(Enum):
 
     # Vivian Series
     VIVIAN = ProductInfo(nickname="Vivian", short_models=("a134", "a135", "a155", "a156"))
+    VIVIANS = ProductInfo(nickname="VivianS", short_models=("a245",))  # Qrevo Curv 2 Flow — roller mop, dock type 29
     VIVIANC = ProductInfo(nickname="VivianC", short_models=("a158", "a159"))
 
 

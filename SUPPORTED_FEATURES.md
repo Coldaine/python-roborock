@@ -2,8 +2,8 @@
 |---|---|---|---|---|---|---|
 | product_nickname | PEARLPLUSS | TANOSS | PEARLPLUS | PEARLPLUS | RUBYSLITE | PEARLPLUS |
 | protocol_version | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | B01 |
-| new_feature_info | X | X | X | X | X |  |
-| new_feature_info_str | X | X | X | X | X |  |
+| new_feature_info | 4499197267967999 | 636084721975295 | 4499197267967999 | 4499197267967999 | 633887780925447 |  |
+| new_feature_info_str | 000000000000000BC2FF8F7F7EFEFFFF | 0000000000002000 | 00000000000200058CC57FFDA86836DD5BBFAF7F7EFEFFFF | 508A977F7EFEFFFF | 0000000000002000 |  |
 | `111` | X | X | X | X | X |  |
 | `112` | X | X | X | X | X |  |
 | `113` | X | X | X | X | X |  |
@@ -47,7 +47,7 @@
 | `is_clean_history_time_line_supported` |  |  | X |  |  |  |
 | `is_clean_route_deep_slow_plus_supported` |  |  |  |  |  |  |
 | `is_clean_route_fast_mode_supported` | X |  | X | X |  |  |
-| `is_clean_route_setting_supported` |  |  |  |  |  |  |
+| `is_clean_route_setting_supported` | X | X | X | X |  | X |
 | `is_clean_then_mop_mode_supported` |  |  | X |  |  |  |
 | `is_clean_time_line_supported` |  |  | X |  |  |  |
 | `is_collect_dust_count_show_supported` |  |  | X |  |  |  |
@@ -59,7 +59,7 @@
 | `is_custom_clean_mode_count_supported` | X |  | X | X |  |  |
 | `is_custom_mode_supported` | X | X | X | X | X | X |
 | `is_custom_water_box_distance_supported` | X |  | X | X | X |  |
-| `is_customized_clean_supported` |  |  |  |  |  |  |
+| `is_customized_clean_supported` | X | X | X | X |  | X |
 | `is_detect_wire_carpet_supported` |  |  | X |  |  |  |
 | `is_dirty_object_detect_supported` |  |  | X |  |  |  |
 | `is_dirty_replenish_clean_supported` | X |  | X | X |  |  |
@@ -92,14 +92,14 @@
 | `is_map_carpet_add_support` | X |  | X | X |  |  |
 | `is_map_eraser_supported` |  |  | X |  |  |  |
 | `is_matter_supported` | X |  | X |  |  |  |
-| `is_max_plus_mode_supported` |  |  |  |  |  |  |
+| `is_max_plus_mode_supported` | X |  | X | X |  | X |
 | `is_max_zone_opened_supported` |  |  | X |  |  |  |
 | `is_mechanical_arm_mode_supported` |  |  |  |  |  |  |
 | `is_midway_back_to_dock_supported` |  |  | X |  |  |  |
 | `is_min_battery_15_to_clean_task_supported` | X |  | X | X |  |  |
-| `is_mop_forbidden_supported` |  |  |  |  |  |  |
+| `is_mop_forbidden_supported` |  | X |  |  | X |  |
 | `is_mop_path_supported` | X | X | X | X |  |  |
-| `is_mop_shake_module_supported` |  |  |  |  |  |  |
+| `is_mop_shake_module_supported` |  | X |  |  |  |  |
 | `is_mop_shake_water_max_supported` |  |  | X |  |  |  |
 | `is_multi_floor_supported` | X | X | X | X | X |  |
 | `is_multi_map_segment_timer_supported` | X | X | X | X | X |  |
@@ -107,7 +107,7 @@
 | `is_new_data_for_clean_history` | X | X | X | X |  |  |
 | `is_new_data_for_clean_history_detail` | X | X | X | X |  |  |
 | `is_new_endpoint_supported` | X |  | X | X |  |  |
-| `is_new_remote_view_supported` |  |  |  |  |  |  |
+| `is_new_remote_view_supported` | X | X | X | X |  | X |
 | `is_no_need_carpet_press_set_supported` | X |  | X |  |  |  |
 | `is_none_pure_clean_mop_with_max_plus` |  |  |  |  |  |  |
 | `is_object_detect_check_supported` | X |  | X |  |  |  |
@@ -119,7 +119,7 @@
 | `is_pet_supplies_deep_clean_supported` | X |  | X |  |  |  |
 | `is_program_mode_supported` |  |  |  |  |  |  |
 | `is_pumping_water_supported` |  |  |  |  |  |  |
-| `is_pure_clean_mop_supported` |  |  |  |  |  |  |
+| `is_pure_clean_mop_supported` | X | X | X | X |  | X |
 | `is_re_segment_supported` | X | X | X | X | X |  |
 | `is_record_allowed` | X | X | X | X |  |  |
 | `is_remote_supported` | X | X | X | X | X |  |
@@ -168,7 +168,7 @@
 | `is_support_smart_scene` | X |  | X | X |  |  |
 | `is_support_stuck_zone` | X |  | X | X |  |  |
 | `is_support_voice_control_debug` |  |  |  |  |  |  |
-| `is_support_water_mode` |  |  |  |  |  |  |
+| `is_support_water_mode` | X | X | X | X | X | X |
 | `is_supported_download_test_voice` | X |  | X | X |  |  |
 | `is_supported_drying` | X |  | X | X |  |  |
 | `is_supported_valley_electricity` | X |  | X | X |  |  |
