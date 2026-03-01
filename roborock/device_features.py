@@ -562,9 +562,9 @@ class DeviceFeatures(RoborockBase):
     @classmethod
     def from_feature_flags(
         cls,
-        new_feature_info: int,
-        new_feature_info_str: str,
-        feature_info: list[int],
+        new_feature_info: int | None,
+        new_feature_info_str: str | None,
+        feature_info: list[int] | None,
         product_nickname: RoborockProductNickname | None,
     ) -> DeviceFeatures:
         """Creates a DeviceFeatures instance from raw feature flags.
@@ -572,6 +572,12 @@ class DeviceFeatures(RoborockBase):
         :param new_feature_info_str: A hex string from get_init_status or home_data.
         :param feature_info: A list of ints from get_init_status
         :param product_nickname: The product nickname of the device."""
+
+        # Default None to empty/0 values
+        new_feature_info = new_feature_info or 0
+        new_feature_info_str = new_feature_info_str or ""
+        feature_info = feature_info or []
+
         # For any future reverse engineerining:
         # RobotNewFeatures = new_feature_info
         # newFeatureInfoStr = new_feature_info_str
