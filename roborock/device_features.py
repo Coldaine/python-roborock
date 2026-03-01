@@ -98,6 +98,7 @@ class ProductFeatures(StrEnum):
     MOP_ELECTRONIC_MODULE = "mop_electronic_module"
     MOP_SHAKE_MODULE = "mop_shake_module"
     MOP_SPIN_MODULE = "mop_spin_module"
+    MOP_ROLLER_MODULE = "mop_roller_module"  # SpiraFlow roller mop (Qrevo Curv 2 Flow and newer)
     DEFAULT_MAP3D = "map3d"
     DEFAULT_CLEANMODECUSTOM = "custom_cleanmode"
     REALTIMEVIDEO = "realtimevideo"
@@ -190,6 +191,7 @@ _BASE_PRODUCT_FEATURE_MAP: dict[RoborockProductNickname, list[ProductFeatures]] 
     RoborockProductNickname.PEARLS: PEARL_FEATURES,
     RoborockProductNickname.PEARLPLUS: PEARL_PLUS_FEATURES,
     RoborockProductNickname.VIVIAN: PEARL_PLUS_FEATURES,
+    RoborockProductNickname.VIVIANS: PEARL_PLUS_FEATURES + [ProductFeatures.MOP_ROLLER_MODULE],  # Curv 2 Flow with SpiraFlow roller mop
     RoborockProductNickname.CORAL: PEARL_PLUS_FEATURES,
     RoborockProductNickname.ULTRON: ULTRON_FEATURES,
     RoborockProductNickname.ULTRONE: [ProductFeatures.CLEANMODE_NONE_PURECLEANMOP_WITH_MAXPLUS],
@@ -537,6 +539,7 @@ class DeviceFeatures(RoborockBase):
                 ProductFeatures.MOP_ELECTRONIC_MODULE,
                 ProductFeatures.MOP_SHAKE_MODULE,
                 ProductFeatures.MOP_SPIN_MODULE,
+                ProductFeatures.MOP_ROLLER_MODULE,
             ]
         }
     )
@@ -547,11 +550,23 @@ class DeviceFeatures(RoborockBase):
         metadata={"product_features": [ProductFeatures.CLEANMODE_NONE_PURECLEANMOP_WITH_MAXPLUS]}
     )
     is_clean_route_setting_supported: bool = field(
-        metadata={"product_features": [ProductFeatures.MOP_SHAKE_MODULE, ProductFeatures.MOP_SPIN_MODULE]}
+        metadata={
+            "product_features": [
+                ProductFeatures.MOP_SHAKE_MODULE,
+                ProductFeatures.MOP_SPIN_MODULE,
+                ProductFeatures.MOP_ROLLER_MODULE,
+            ]
+        }
     )
     is_mop_shake_module_supported: bool = field(metadata={"product_features": [ProductFeatures.MOP_SHAKE_MODULE]})
     is_customized_clean_supported: bool = field(
-        metadata={"product_features": [ProductFeatures.MOP_SHAKE_MODULE, ProductFeatures.MOP_SPIN_MODULE]}
+        metadata={
+            "product_features": [
+                ProductFeatures.MOP_SHAKE_MODULE,
+                ProductFeatures.MOP_SPIN_MODULE,
+                ProductFeatures.MOP_ROLLER_MODULE,
+            ]
+        }
     )
 
     # Raw feature info values from get_init_status for diagnostics
@@ -562,9 +577,9 @@ class DeviceFeatures(RoborockBase):
     @classmethod
     def from_feature_flags(
         cls,
-        new_feature_info: int,
-        new_feature_info_str: str,
-        feature_info: list[int],
+        new_feature_info: int | None,
+        new_feature_info_str: str | None,
+        feature_info: list[int] | None,
         product_nickname: RoborockProductNickname | None,
     ) -> DeviceFeatures:
         """Creates a DeviceFeatures instance from raw feature flags.
@@ -572,6 +587,12 @@ class DeviceFeatures(RoborockBase):
         :param new_feature_info_str: A hex string from get_init_status or home_data.
         :param feature_info: A list of ints from get_init_status
         :param product_nickname: The product nickname of the device."""
+
+        # Default None to empty/0 values
+        new_feature_info = new_feature_info or 0
+        new_feature_info_str = new_feature_info_str or ""
+        feature_info = feature_info or []
+
         # For any future reverse engineerining:
         # RobotNewFeatures = new_feature_info
         # newFeatureInfoStr = new_feature_info_str
@@ -655,6 +676,8 @@ WASH_N_FILL_DOCK_TYPES = [
     RoborockDockTypeCode.qrevo_s_dock,
     RoborockDockTypeCode.saros_r10_dock,
     RoborockDockTypeCode.qrevo_curv_dock,
+    RoborockDockTypeCode.saros_10_dock,  # Bug fix: Saros 10 has wash+fill dock; was accidentally omitted
+    RoborockDockTypeCode.qrevo_curv_2_flow_dock,
 ]
 
 

@@ -574,6 +574,7 @@ class RoborockDockTypeCode(RoborockEnum):
     saros_r10_dock = 16
     qrevo_curv_dock = 17
     saros_10_dock = 18
+    qrevo_curv_2_flow_dock = 29
 
 
 class RoborockDockDustCollectionModeCode(RoborockEnum):

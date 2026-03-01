@@ -177,6 +177,7 @@ class RoborockProductNickname(Enum):
 
     # Vivian Series
     VIVIAN = ProductInfo(nickname="Vivian", short_models=("a134", "a135", "a155", "a156"))
+    VIVIANS = ProductInfo(nickname="VivianS", short_models=("a245",))  # Qrevo Curv 2 Flow — roller mop, dock type 29
     VIVIANC = ProductInfo(nickname="VivianC", short_models=("a158", "a159"))
 
 
