@@ -12,9 +12,13 @@ from roborock.const import (
     MOP_ROLLER_REPLACE_TIME,
     NO_MAP,
     ROBOROCK_G10S_PRO,
+    ROBOROCK_G20S_Ultra,
     ROBOROCK_P10,
     ROBOROCK_Q7_MAX,
     ROBOROCK_QREVO_CURV,
+    ROBOROCK_QREVO_CURV_A155,
+    ROBOROCK_QREVO_CURV_A156,
+    ROBOROCK_QREVO_CURV_2_FLOW,
     ROBOROCK_QREVO_MASTER,
     ROBOROCK_QREVO_MAXV,
     ROBOROCK_QREVO_PRO,
@@ -31,10 +35,11 @@ from roborock.const import (
     ROBOROCK_S8_PRO_ULTRA,
     ROBOROCK_SAROS_10,
     ROBOROCK_SAROS_10R,
+    ROBOROCK_VIVIAN_C_A158,
+    ROBOROCK_VIVIAN_C_A159,
     SENSOR_DIRTY_REPLACE_TIME,
     SIDE_BRUSH_REPLACE_TIME,
     STRAINER_REPLACE_TIME,
-    ROBOROCK_G20S_Ultra,
 )
 from roborock.exceptions import RoborockException
 
@@ -452,6 +457,20 @@ class QRevoCurvStatus(Status):
 
 
 @dataclass
+class QRevoCurv2FlowStatus(Status):
+    """Status for Roborock Qrevo Curv 2 Flow (roborock.vacuum.a245).
+
+    Fan/mop/water codes confirmed via live device probe (dock type 29).
+    Uses same enum classes as QRevoCurv; roller mop hardware confirmed by
+    moprollerWorkTime in consumables response.
+    """
+
+    fan_power: RoborockFanSpeedQRevoCurv | None = None
+    water_box_mode: RoborockMopIntensityQRevoCurv | None = None
+    mop_mode: RoborockMopModeQRevoCurv | None = None
+
+
+@dataclass
 class QRevoMaxVStatus(Status):
     fan_power: RoborockFanSpeedQRevoMaxV | None = None
     water_box_mode: RoborockMopIntensityQRevoMaxV | None = None
@@ -531,6 +550,7 @@ ModelStatus: dict[str, type[Status]] = {
     ROBOROCK_Q7_MAX: Q7MaxStatus,
     ROBOROCK_QREVO_MASTER: QRevoMasterStatus,
     ROBOROCK_QREVO_CURV: QRevoCurvStatus,
+    ROBOROCK_QREVO_CURV_2_FLOW: QRevoCurv2FlowStatus,
     ROBOROCK_S6: S6PureStatus,
     ROBOROCK_S6_MAXV: S6MaxVStatus,
     ROBOROCK_S6_PURE: S6PureStatus,
@@ -550,6 +570,14 @@ ModelStatus: dict[str, type[Status]] = {
     ROBOROCK_S8_MAXV_ULTRA: S8MaxvUltraStatus,
     ROBOROCK_SAROS_10R: Saros10RStatus,
     ROBOROCK_SAROS_10: Saros10Status,
+    # Unconfirmed Vivian-series a155/a156 — mapped to QRevoCurvStatus as best guess.
+    # a245 (Qrevo Curv 2 Flow) is confirmed separately above; these are different models.
+    ROBOROCK_QREVO_CURV_A155: QRevoCurvStatus,
+    ROBOROCK_QREVO_CURV_A156: QRevoCurvStatus,
+    # VivianC variants (a158/a159) — single-line camera, spin-mop configuration.
+    # Mapped to QRevoCurvStatus until specific enum data is available from device owners.
+    ROBOROCK_VIVIAN_C_A158: QRevoCurvStatus,
+    ROBOROCK_VIVIAN_C_A159: QRevoCurvStatus,
 }
 
 
