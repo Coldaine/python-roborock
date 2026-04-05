@@ -4,6 +4,8 @@ For B01/Q7, the Roborock app uses `service.get_record_list` which returns totals
 and a `record_list` whose items contain a JSON string in `detail`.
 """
 
+from __future__ import annotations
+
 import logging
 
 from roborock import CleanRecordDetail, CleanRecordList, CleanRecordSummary
@@ -11,7 +13,7 @@ from roborock.devices.rpc.b01_q7_channel import send_decoded_command
 from roborock.devices.traits import Trait
 from roborock.devices.transport.mqtt_channel import MqttChannel
 from roborock.exceptions import RoborockException
-from roborock.protocols.b01_q7_protocol import B01_Q7_DPS, Q7RequestMessage
+from roborock.protocols.b01_q7_protocol import Q7RequestMessage
 from roborock.roborock_typing import RoborockB01Q7Methods
 
 __all__ = [
@@ -48,7 +50,7 @@ class CleanSummaryTrait(CleanRecordSummary, Trait):
         """Fetch the raw device clean record list (`service.get_record_list`)."""
         result = await send_decoded_command(
             self._channel,
-            Q7RequestMessage(dps=B01_Q7_DPS, command=RoborockB01Q7Methods.GET_RECORD_LIST, params={}),
+            Q7RequestMessage(dps=10000, command=RoborockB01Q7Methods.GET_RECORD_LIST, params={}),
         )
 
         if not isinstance(result, dict):

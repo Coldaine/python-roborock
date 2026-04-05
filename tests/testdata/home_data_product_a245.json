@@ -1,0 +1,166 @@
+{
+    "id": "64Pgg7cwjxHqT2qQrEh7Ib",
+    "name": "Qrevo Curv 2 Flow",
+    "model": "roborock.vacuum.a245",
+    "category": "robot.vacuum.cleaner",
+    "capability": 0,
+    "schema": [
+        {
+            "id": 101,
+            "name": "rpc_request",
+            "code": "rpc_request",
+            "mode": "rw",
+            "type": "RAW"
+        },
+        {
+            "id": 102,
+            "name": "rpc_response",
+            "code": "rpc_response",
+            "mode": "rw",
+            "type": "RAW"
+        },
+        {
+            "id": 120,
+            "name": "错误代码",
+            "code": "error_code",
+            "mode": "ro",
+            "type": "ENUM",
+            "property": "{\"range\": [\"\"]}"
+        },
+        {
+            "id": 121,
+            "name": "设备状态",
+            "code": "state",
+            "mode": "ro",
+            "type": "ENUM",
+            "property": "{\"range\": [\"\"]}"
+        },
+        {
+            "id": 122,
+            "name": "设备电量",
+            "code": "battery",
+            "mode": "ro",
+            "type": "ENUM",
+            "property": "{\"range\": [\"\"]}"
+        },
+        {
+            "id": 123,
+            "name": "清洁模式",
+            "code": "fan_power",
+            "mode": "rw",
+            "type": "ENUM",
+            "property": "{\"range\": [\"\"]}"
+        },
+        {
+            "id": 124,
+            "name": "拖地模式",
+            "code": "water_box_mode",
+            "mode": "rw",
+            "type": "ENUM",
+            "property": "{\"range\": [\"\"]}"
+        },
+        {
+            "id": 125,
+            "name": "主刷寿命",
+            "code": "main_brush_life",
+            "mode": "rw",
+            "type": "VALUE",
+            "property": "{\"max\": 100, \"min\": 0, \"step\": 1, \"unit\": \"null\", \"scale\": 1}"
+        },
+        {
+            "id": 126,
+            "name": "边刷寿命",
+            "code": "side_brush_life",
+            "mode": "rw",
+            "type": "VALUE",
+            "property": "{\"max\": 100, \"min\": 0, \"step\": 1, \"unit\": \"null\", \"scale\": 1}"
+        },
+        {
+            "id": 127,
+            "name": "滤网寿命",
+            "code": "filter_life",
+            "mode": "rw",
+            "type": "VALUE",
+            "property": "{\"max\": 100, \"min\": 0, \"step\": 1, \"unit\": \"null\", \"scale\": 1}"
+        },
+        {
+            "id": 128,
+            "name": "额外状态",
+            "code": "additional_props",
+            "mode": "ro",
+            "type": "RAW"
+        },
+        {
+            "id": 130,
+            "name": "完成事件",
+            "code": "task_complete",
+            "mode": "ro",
+            "type": "RAW"
+        },
+        {
+            "id": 131,
+            "name": "电量不足任务取消",
+            "code": "task_cancel_low_power",
+            "mode": "ro",
+            "type": "RAW"
+        },
+        {
+            "id": 132,
+            "name": "运动中任务取消",
+            "code": "task_cancel_in_motion",
+            "mode": "ro",
+            "type": "RAW"
+        },
+        {
+            "id": 133,
+            "name": "充电状态",
+            "code": "charge_status",
+            "mode": "ro",
+            "type": "RAW"
+        },
+        {
+            "id": 134,
+            "name": "烘干状态",
+            "code": "drying_status",
+            "mode": "ro",
+            "type": "RAW"
+        },
+        {
+            "id": 135,
+            "name": "离线原因细分",
+            "code": "offline_status",
+            "mode": "ro",
+            "type": "RAW"
+        },
+        {
+            "id": 138,
+            "name": "工作任务类型",
+            "code": "clean_task_type",
+            "mode": "ro",
+            "type": "ENUM",
+            "property": "{\"range\": [\"0\", \"1\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\"]}"
+        },
+        {
+            "id": 139,
+            "name": "回基站目的",
+            "code": "back_type",
+            "mode": "ro",
+            "type": "RAW"
+        },
+        {
+            "id": 141,
+            "name": "清洁进度",
+            "code": "cleaning_progress",
+            "mode": "ro",
+            "type": "VALUE",
+            "property": "{\"max\": 100, \"min\": 0, \"step\": 1, \"scale\": 1}"
+        },
+        {
+            "id": 142,
+            "name": "publish_dsp",
+            "code": "publish_dsp",
+            "mode": "ro",
+            "type": "RAW"
+        }
+    ]
+}

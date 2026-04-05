@@ -18,8 +18,9 @@ the current map's information and room names as needed.
 import asyncio
 import base64
 import logging
+from typing import Self
 
-from roborock.data import CombinedMapInfo, MultiMapsListMapInfo, NamedRoomMapping, RoborockBase
+from roborock.data import CombinedMapInfo, NamedRoomMapping, RoborockBase
 from roborock.data.v1.v1_code_mappings import RoborockStateCode
 from roborock.devices.cache import DeviceCache
 from roborock.devices.traits.v1 import common
@@ -40,7 +41,6 @@ class HomeTrait(RoborockBase, common.V1TraitMixin):
     """Trait that represents a full view of the home layout."""
 
     command = RoborockCommand.GET_MAP_V1  # This is not used
-    converter = common.DefaultConverter(RoborockBase)  # Not used
 
     def __init__(
         self,
@@ -93,7 +93,7 @@ class HomeTrait(RoborockBase, common.V1TraitMixin):
             self._discovery_completed = True
             try:
                 self._home_map_content = {
-                    k: self._map_content.converter.parse_map_content(base64.b64decode(v))
+                    k: self._map_content.parse_map_content(base64.b64decode(v))
                     for k, v in (device_cache_data.home_map_content_base64 or {}).items()
                 }
             except (ValueError, RoborockException) as ex:
@@ -114,24 +114,34 @@ class HomeTrait(RoborockBase, common.V1TraitMixin):
         self._discovery_completed = True
         await self._update_home_cache(home_map_info, home_map_content)
 
-    async def _refresh_map_info(self, map_info: MultiMapsListMapInfo) -> CombinedMapInfo:
+    async def _refresh_map_info(self, map_info) -> CombinedMapInfo:
         """Collect room data for a specific map and return CombinedMapInfo."""
         await self._rooms_trait.refresh()
 
-        # We have room names from multiple sources:
-        # - The map_info.rooms which we just received from the MultiMapsList
-        # - RoomsTrait rooms come from the GET_ROOM_MAPPING command for the current device (only)
-        # - RoomsTrait rooms that are pulled from the cloud API
-        # We always prefer the RoomsTrait room names since they are always newer and
-        # just refreshed above.
-        rooms_map: dict[int, NamedRoomMapping] = {
-            **map_info.rooms_map,
-            **{room.segment_id: room for room in self._rooms_trait.rooms or ()},
-        }
+        rooms: dict[int, NamedRoomMapping] = {}
+        if map_info.rooms:
+            # Not all vacuums resopnd with rooms inside map_info.
+            for room in map_info.rooms:
+                if room.id is not None and room.iot_name_id is not None:
+                    rooms[room.id] = NamedRoomMapping(
+                        segment_id=room.id,
+                        iot_id=room.iot_name_id,
+                        name=room.iot_name or "Unknown",
+                    )
+
+        # Add rooms from rooms_trait. If room already exists and rooms_trait has "Unknown", don't override.
+        if self._rooms_trait.rooms:
+            for room in self._rooms_trait.rooms:
+                if room.segment_id is not None and room.name:
+                    if room.segment_id not in rooms or room.name != "Unknown":
+                        # Add the room to rooms if the room segment is not already in it
+                        # or if the room name isn't unknown.
+                        rooms[room.segment_id] = room
+
         return CombinedMapInfo(
             map_flag=map_info.map_flag,
             name=map_info.name,
-            rooms=list(rooms_map.values()),
+            rooms=list(rooms.values()),
         )
 
     async def _refresh_map_content(self) -> MapContent:
@@ -222,16 +232,13 @@ class HomeTrait(RoborockBase, common.V1TraitMixin):
         return self._home_map_info.get(current_map_flag)
 
     @property
-    def current_rooms(self) -> list[NamedRoomMapping]:
-        """Returns the room names for the current map."""
-        if self.current_map_data is None:
-            return []
-        return self.current_map_data.rooms
-
-    @property
     def home_map_content(self) -> dict[int, MapContent] | None:
         """Returns the map content for all cached maps."""
         return self._home_map_content
+
+    def _parse_response(self, response: common.V1ResponseData) -> Self:
+        """This trait does not parse responses directly."""
+        raise NotImplementedError("HomeTrait does not support direct command responses")
 
     async def _update_home_cache(
         self, home_map_info: dict[int, CombinedMapInfo], home_map_content: dict[int, MapContent]

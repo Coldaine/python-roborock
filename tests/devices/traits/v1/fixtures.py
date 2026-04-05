@@ -1,6 +1,5 @@
 """Fixtures for V1 trait tests."""
 
-from copy import deepcopy
 from unittest.mock import AsyncMock
 
 import pytest
@@ -90,7 +89,7 @@ def device_fixture(
         trait=v1.create(
             device_info.duid,
             product,
-            deepcopy(HOME_DATA),
+            HOME_DATA,
             mock_rpc_channel,
             mock_mqtt_rpc_channel,
             mock_map_rpc_channel,
@@ -126,4 +125,3 @@ async def discover_features_fixture(
     await device.connect()
     assert device.v1_properties.status.dock_type == dock_type_code
     mock_rpc_channel.send_command.reset_mock()
-    mock_rpc_channel.send_command.side_effect = None

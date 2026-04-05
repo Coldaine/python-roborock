@@ -1,5 +1,7 @@
 """Thin wrapper around the MQTT channel for Roborock B01 Q10 devices."""
 
+from __future__ import annotations
+
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any

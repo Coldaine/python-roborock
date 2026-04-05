@@ -76,33 +76,6 @@ class Recommend(RoborockBase):
 
 
 @dataclass
-class Q7MapListEntry(RoborockBase):
-    """Single map list entry returned by `service.get_map_list`."""
-
-    id: int | None = None
-    cur: bool | None = None
-
-
-@dataclass
-class Q7MapList(RoborockBase):
-    """Map list response returned by `service.get_map_list`."""
-
-    map_list: list[Q7MapListEntry] = field(default_factory=list)
-
-    @property
-    def current_map_id(self) -> int | None:
-        """Current map id, preferring the entry marked current."""
-        if not self.map_list:
-            return None
-
-        ordered = sorted(self.map_list, key=lambda entry: entry.cur or False, reverse=True)
-        first = next(iter(ordered), None)
-        if first is None or not isinstance(first.id, int):
-            return None
-        return first.id
-
-
-@dataclass
 class B01Props(RoborockBase):
     """
     Represents the complete properties and status for a Roborock B01 model.
@@ -114,7 +87,7 @@ class B01Props(RoborockBase):
     wind: SCWindMapping | None = None
     water: WaterLevelMapping | None = None
     mode: CleanTypeMapping | None = None
-    quantity: int | None = None  # The Q7 L5 reports its battery level as 'quantity'
+    quantity: int | None = None
     alarm: int | None = None
     volume: int | None = None
     hypa: int | None = None
@@ -168,13 +141,6 @@ class B01Props(RoborockBase):
     serial_number: str | None = None
     recommend: Recommend | None = None
     add_sweep_status: int | None = None
-
-    @property
-    def battery(self) -> int | None:
-        """
-        Returns device battery level as a percentage.
-        """
-        return self.quantity
 
     @property
     def main_brush_time_left(self) -> int | None:

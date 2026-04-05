@@ -301,11 +301,6 @@ class HomeDataRoom(RoborockBase):
     id: int
     name: str
 
-    @property
-    def iot_id(self) -> str:
-        """Return the room's ID as a string IOT ID."""
-        return str(self.id)
-
 
 @dataclass
 class HomeDataScene(RoborockBase):
@@ -357,16 +352,6 @@ class HomeData(RoborockBase):
             if (product := product_map.get(device.product_id)) is not None
         }
 
-    @property
-    def rooms_map(self) -> dict[str, HomeDataRoom]:
-        """Returns a dictionary of Room iot_id to rooms"""
-        return {room.iot_id: room for room in self.rooms}
-
-    @property
-    def rooms_name_map(self) -> dict[str, str]:
-        """Returns a dictionary of Room iot_id to room names."""
-        return {room.iot_id: room.name for room in self.rooms}
-
 
 @dataclass
 class LoginData(RoborockBase):
@@ -403,13 +388,8 @@ class NamedRoomMapping(RoomMapping):
     from the HomeData based on the iot_id from the room.
     """
 
-    @property
-    def name(self) -> str:
-        """The human-readable name of the room, or a default name if not available."""
-        return self.raw_name or f"Room {self.segment_id}"
-
-    raw_name: str | None = None
-    """The raw name of the room, as provided by the device."""
+    name: str
+    """The human-readable name of the room, if available."""
 
 
 @dataclass
@@ -428,11 +408,6 @@ class CombinedMapInfo(RoborockBase):
 
     rooms: list[NamedRoomMapping]
     """The list of rooms in the map."""
-
-    @property
-    def rooms_map(self) -> dict[int, NamedRoomMapping]:
-        """Returns a mapping of segment_id to NamedRoomMapping."""
-        return {room.segment_id: room for room in self.rooms}
 
 
 @dataclass

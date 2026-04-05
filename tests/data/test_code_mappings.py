@@ -5,7 +5,7 @@ These tests exercise the custom enum methods using arbitrary enum values.
 import pytest
 
 from roborock import HomeDataProduct, RoborockCategory
-from roborock.data.b01_q10.b01_q10_code_mappings import B01_Q10_DP, YXCleanType
+from roborock.data.b01_q10.b01_q10_code_mappings import B01_Q10_DP
 
 
 def test_from_code() -> None:
@@ -52,30 +52,6 @@ def test_invalid_from_value() -> None:
         B01_Q10_DP.from_value("invalid_value")
 
 
-@pytest.mark.parametrize(
-    "input, expected",
-    [
-        ("START_CLEAN", B01_Q10_DP.START_CLEAN),
-        ("start_clean", B01_Q10_DP.START_CLEAN),
-        ("dpStartClean", B01_Q10_DP.START_CLEAN),
-        (201, B01_Q10_DP.START_CLEAN),
-        ("PAUSE", B01_Q10_DP.PAUSE),
-        ("pause", B01_Q10_DP.PAUSE),
-        ("dpPause", B01_Q10_DP.PAUSE),
-        (204, B01_Q10_DP.PAUSE),
-        ("STOP", B01_Q10_DP.STOP),
-        ("stop", B01_Q10_DP.STOP),
-        ("dpStop", B01_Q10_DP.STOP),
-        (206, B01_Q10_DP.STOP),
-        ("invalid_value", None),
-        (999999, None),
-    ],
-)
-def test_from_any_optional(input: str | int, expected: B01_Q10_DP | None) -> None:
-    """Test from_any_optional method."""
-    assert B01_Q10_DP.from_any_optional(input) == expected
-
-
 def test_homedata_product_unknown_category():
     """Test that HomeDataProduct can handle unknown categories."""
     data = {
@@ -89,17 +65,3 @@ def test_homedata_product_unknown_category():
     product = HomeDataProduct.from_dict(data)
     assert product.id == "unknown_cat_id"
     assert product.category == RoborockCategory.UNKNOWN
-
-
-@pytest.mark.parametrize(
-    ("readable_value", "expected_clean_type"),
-    [
-        ("vac_and_mop", YXCleanType.VAC_AND_MOP),
-        ("vacuum", YXCleanType.VACUUM),
-        ("mop", YXCleanType.MOP),
-    ],
-)
-def test_yx_clean_type_from_value_readable_values(readable_value: str, expected_clean_type: YXCleanType) -> None:
-    """Test YXCleanType accepts canonical readable values."""
-    assert YXCleanType.from_value(readable_value) is expected_clean_type
-    assert expected_clean_type.value == readable_value

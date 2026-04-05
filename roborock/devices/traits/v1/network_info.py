@@ -1,5 +1,7 @@
 """Trait for device network information."""
 
+from __future__ import annotations
+
 import logging
 
 from roborock.data import NetworkInfo
@@ -8,16 +10,6 @@ from roborock.devices.traits.v1 import common
 from roborock.roborock_typing import RoborockCommand
 
 _LOGGER = logging.getLogger(__name__)
-
-
-class NetworkInfoConverter(common.V1TraitDataConverter):
-    """Converter for NetworkInfo objects."""
-
-    def convert(self, response: common.V1ResponseData) -> NetworkInfo:
-        """Parse the response from the device into a NetworkInfoConverter instance."""
-        if not isinstance(response, dict):
-            raise ValueError(f"Unexpected NetworkInfoTrait response format: {response!r}")
-        return NetworkInfo.from_dict(response)
 
 
 class NetworkInfoTrait(NetworkInfo, common.V1TraitMixin):
@@ -31,7 +23,6 @@ class NetworkInfoTrait(NetworkInfo, common.V1TraitMixin):
     """
 
     command = RoborockCommand.GET_NETWORK_INFO
-    converter = NetworkInfoConverter()
 
     def __init__(self, device_uid: str, device_cache: DeviceCache) -> None:  # pylint: disable=super-init-not-called
         """Initialize the trait."""
@@ -45,7 +36,7 @@ class NetworkInfoTrait(NetworkInfo, common.V1TraitMixin):
         device_cache_data = await self._device_cache.get()
         if device_cache_data.network_info:
             _LOGGER.debug("Using cached network info for device %s", self._device_uid)
-            common.merge_trait_values(self, device_cache_data.network_info)
+            self._update_trait_values(device_cache_data.network_info)
             return
 
         # Load from device if not in cache
@@ -56,3 +47,9 @@ class NetworkInfoTrait(NetworkInfo, common.V1TraitMixin):
         device_cache_data = await self._device_cache.get()
         device_cache_data.network_info = self
         await self._device_cache.set(device_cache_data)
+
+    def _parse_response(self, response: common.V1ResponseData) -> NetworkInfo:
+        """Parse the response from the device into a NetworkInfo."""
+        if not isinstance(response, dict):
+            raise ValueError(f"Unexpected NetworkInfoTrait response format: {response!r}")
+        return NetworkInfo.from_dict(response)

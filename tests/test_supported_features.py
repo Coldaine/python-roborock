@@ -1,3 +1,4 @@
+from dataclasses import fields
 from syrupy import SnapshotAssertion
 
 from roborock import SHORT_MODEL_TO_ENUM
@@ -25,6 +26,29 @@ def test_supported_features_qrevo_maxv():
     assert device_features.is_led_status_switch_supported
     assert not device_features.is_matter_supported
     print(device_features)
+
+
+def test_supported_features_curv_2_flow():
+    """Ensure that a Qrevo Curv 2 Flow (a245) has the correct features enabled."""
+    model = "roborock.vacuum.a245"
+    product_nickname = SHORT_MODEL_TO_ENUM.get(model.split(".")[-1])
+    device_features = DeviceFeatures.from_feature_flags(
+        new_feature_info=4499197267967999,
+        new_feature_info_str="00000000000200058CC57FFDA86836DD5BBFAF7F7EFEFFFF",
+        feature_info=[111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125],
+        product_nickname=product_nickname,
+    )
+    assert device_features
+    # a245 is VIVIANS and should have MOP_ROLLER_MODULE
+    assert device_features.is_clean_route_setting_supported
+    assert device_features.is_customized_clean_supported
+    # Verify roller mop specifically
+    assert any(
+        f.metadata.get("product_features") and "mop_roller_module" in [feat.value for feat in f.metadata["product_features"]]
+        for f in fields(DeviceFeatures)
+    )
+    # Check a specific feature derived from MOP_ROLLER_MODULE
+    assert device_features.is_customized_clean_supported
 
 
 def test_supported_features_s7():
