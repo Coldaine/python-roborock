@@ -19,3 +19,7 @@ docs/_build/
 
 # GitHub App credentials
 gha-creds-*.json
+
+# Claude Code / OMC agent state
+.claude/
+.omc/
