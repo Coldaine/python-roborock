@@ -1,0 +1,2780 @@
+[search-mode]
+MAXIMIZE SEARCH EFFORT. Launch multiple background agents IN PARALLEL:
+- explore agents (codebase patterns, file structures, ast-grep)
+- librarian agents (remote repos, official docs, GitHub examples)
+Plus direct tools: Grep, ripgrep (rg), ast-grep (sg)
+NEVER stop at first result - be exhaustive.
+
+[analyze-mode]
+ANALYSIS MODE. Gather context before diving deep:
+CONTEXT GATHERING (parallel):
+- 1-2 explore agents (codebase patterns, implementations)
+- 1-2 librarian agents (if external library involved)
+- Direct tools: Grep, AST-grep, LSP for targeted searches
+
+IF COMPLEX - DO NOT STRUGGLE ALONE. Consult specialists:
+- **Oracle**: Conventional problems (architecture, debugging, complex logic)
+- **Artistry**: Non-conventional problems (different approach needed)
+
+SYNTHESIZE findings before proceeding.
+---
+MANDATORY delegate_task params: ALWAYS include load_skills=[] and run_in_background when calling delegate_task.
+Example: delegate_task(subagent_type="explore", prompt="...", run_in_background=true, load_skills=[])
+
+---
+
+# Live Qrevo Curv 2 Flow Command Validation (Real Robot)
+
+## TL;DR
+
+> **Quick Summary**: Execute a full **live** command-validation sweep against the real Qrevo Curv 2 Flow (`roborock.vacuum.a245`) using account `pmaclyman@gmail.com`, capturing exact command outputs and physical behavior observations.
+>
+> **Deliverables**:
+> - Updated `docs/qrevo-curv-2-flow-command-check.md` with live-authenticated command results
+> - Evidence artifacts under `.sisyphus/evidence/live-qrevo-curv-2-flow/`
+> - Pass/fail/unsupported matrix for each tested command
+>
+> **Estimated Effort**: Short
+> **Parallel Execution**: YES - 3 waves + final verification
+> **Critical Path**: Safety gate -> Login/discovery -> Device confirmation -> Read-only baseline -> Actuating sweep -> Final safe-state verification -> Documentation update
+
+---
+
+## Context
+
+### Original Request
+Run live tests on the real robot, verify expected commands for Qrevo Curv 2 Flow, and record what works with outputs.
+
+### Interview Summary
+**Key Discussions**:
+- User explicitly rejected mock-only testing and requested live robot execution.
+- User approved movement/actuating commands.
+- Login method selected: email code flow for `pmaclyman@gmail.com`.
+
+**Research Findings**:
+- `device_info.yaml:242-267` maps Qrevo Curv 2 Flow to `roborock.vacuum.a245` with protocol `1.0`.
+- `roborock/cli.py:317-387` confirms baseline flow (`login`, `discover`, `list-devices`).
+- `docs/qrevo-curv-2-flow-command-check.md` currently has help and pre-login checks but lacks authenticated live outputs.
+
+### Metis/Gap Review
+Metis agent route failed due unavailable model; fallback gap review was done with Oracle and incorporated:
+- Add explicit physical safety gate and abort conditions before movement tests.
+- Prevent scope creep (exclude destructive/global commands unless explicitly approved).
+- Require pre/post-status capture for every actuating command.
+- End in safe robot state (idle or docked) and document it.
+
+---
+
+## Work Objectives
+
+### Core Objective
+Produce a complete, evidence-backed live command report for the real Qrevo Curv 2 Flow, including successful commands, failures, unsupported commands, and exact outputs.
+
+### Concrete Deliverables
+- Live execution transcript for each command tested
+- Command outcome matrix: `success | unsupported | blocked-by-state | failed`
+- Updated documentation with raw outputs and interpretation boundaries
+- Evidence files in `.sisyphus/evidence/live-qrevo-curv-2-flow/`
+
+### Definition of Done
+- [ ] Live login succeeds and correct a245 device is targeted
+- [ ] Approved command sweep is executed with evidence
+- [ ] Robot ends in safe state (idle/docked)
+- [ ] Documentation updated with live outputs and classifications
+
+### Must Have
+- Explicit safety prechecks and abort procedure
+- Exact command strings and outputs captured
+- Clear distinction between tested behavior and unsupported/error outcomes
+
+### Must NOT Have (Guardrails)
+- No mock-only substitution
+- No unapproved destructive/global commands (`reset-consumable`, scene mutation, parser sniffing, doc generation)
+- No blind command blasting without pre/post status checks
+- User-approved scope lock: **destructive commands excluded**.
+
+---
+
+## Verification Strategy (MANDATORY)
+
+> **ZERO HUMAN INTERVENTION in acceptance checks** where possible; for physical movement observation, capture operator-observed notes + terminal evidence.
+
+### Test Decision
+- **Infrastructure exists**: YES (pytest), but this task is **live runtime validation**
+- **Automated tests**: Tests-after (command runner verification and output capture)
+- **Framework**: `uv run roborock ...` CLI execution + evidence files
+
+### QA Policy
+Every task includes executable QA scenarios with concrete commands and evidence paths.
+
+- **CLI execution**: Bash/PowerShell commands
+- **API/device effects**: Post-command `status` verification
+- **Evidence**: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-{N}-{slug}.txt`
+
+---
+
+## Execution Strategy
+
+### Parallel Execution Waves
+
+Wave 1 (Foundation / safe to start immediately):
+- T1 Safety gate and runbook initialization
+- T2 Evidence directory + command logging scaffold
+- T3 Baseline docs backup and result template
+
+Wave 2 (Authentication + targeting):
+- T4 Live login via email code flow
+- T5 Discover/list devices and pin target device_id
+- T6 Baseline read-only command sweep
+
+Wave 3 (Actuating + completion):
+- T7 Actuating command sweep (approved set only)
+- T8 Failure/unsupported command handling pass
+- T9 Safe-state return validation + final status snapshot
+- T10 Documentation update with output matrix
+
+Wave FINAL (verification):
+- F1 Plan compliance audit
+- F2 Output/evidence integrity review
+- F3 Manual QA replay of high-risk commands
+- F4 Scope fidelity check
+
+Critical Path: T1 -> T4 -> T5 -> T6 -> T7 -> T9 -> T10 -> F1-F4
+Max Concurrent: 3
+
+### Dependency Matrix
+- T1: blocked by none; blocks T4,T7
+- T2: blocked by none; blocks T6,T7,T10
+- T3: blocked by none; blocks T10
+- T4: blocked by T1; blocks T5
+- T5: blocked by T4; blocks T6,T7,T8,T9
+- T6: blocked by T2,T5; blocks T7,T10
+- T7: blocked by T1,T2,T5,T6; blocks T8,T9,T10
+- T8: blocked by T5,T7; blocks T10
+- T9: blocked by T5,T7; blocks T10
+- T10: blocked by T2,T3,T6,T7,T8,T9; blocks FINAL
+
+### Agent Dispatch Summary
+- Wave 1: `quick` + `writing`
+- Wave 2: `unspecified-high`
+- Wave 3: `unspecified-high` + `writing`
+- FINAL: `oracle`, `unspecified-high`, `unspecified-high`, `deep`
+
+---
+
+## TODOs
+
+- [ ] 1. Safety gate + abort protocol
+
+  **What to do**:
+  - Confirm supervised test window, clear floor zone, dock access, and emergency stop method.
+  - Write a one-page runbook in `.sisyphus/evidence/live-qrevo-curv-2-flow/task-1-safety-gate.txt` with stop conditions.
+
+  **Must NOT do**:
+  - Do not send actuating commands before safety gate evidence exists.
+
+  **Recommended Agent Profile**:
+  - **Category**: `quick` (checklist + setup)
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: YES
+  - **Parallel Group**: Wave 1
+  - **Blocks**: T4, T7
+  - **Blocked By**: None
+
+  **References**:
+  - `docs/qrevo-curv-2-flow-command-check.md` - existing baseline doc to preserve before live edits.
+  - `roborock/cli.py:317-387` - confirms auth/discovery command flow.
+
+  **Acceptance Criteria**:
+  - [ ] Safety runbook file exists and includes emergency stop triggers.
+
+  **QA Scenarios**:
+  - Scenario: Safety precheck complete
+    - Tool: Bash
+    - Steps: verify runbook file exists and includes `ABORT` section
+    - Expected Result: file exists and contains stop conditions
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-1-safety-gate.txt`
+  - Scenario: Missing safety gate blocks execution
+    - Tool: Bash
+    - Steps: run `if (!(Test-Path ".sisyphus/evidence/live-qrevo-curv-2-flow/task-1-safety-gate.txt")) { Write-Output "safety gate missing"; exit 1 }`
+    - Expected Result: exits non-zero with `safety gate missing` when file absent
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-1-safety-gate-error.txt`
+
+- [ ] 2. Evidence scaffold + logging protocol
+
+  **What to do**:
+  - Create `.sisyphus/evidence/live-qrevo-curv-2-flow/` and per-command transcript files.
+  - Define naming format `task-{N}-{command-slug}.txt`.
+
+  **Must NOT do**:
+  - Do not aggregate all outputs in one file; keep one file per scenario.
+
+  **Recommended Agent Profile**:
+  - **Category**: `quick`
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: YES
+  - **Parallel Group**: Wave 1
+  - **Blocks**: T6, T7, T10
+  - **Blocked By**: None
+
+  **References**:
+  - `.sisyphus/plans/live-qrevo-curv-2-flow-tests.md` - evidence naming conventions.
+
+  **Acceptance Criteria**:
+  - [ ] Evidence directory exists with naming convention documented.
+
+  **QA Scenarios**:
+  - Scenario: Evidence directory readiness
+    - Tool: Bash
+    - Steps: list evidence directory and verify template files
+    - Expected Result: directory + template files present
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-2-evidence-scaffold.txt`
+  - Scenario: Bad evidence path detection
+    - Tool: Bash
+    - Steps: run `Get-ChildItem .sisyphus/evidence/live-qrevo-curv-2-flow -File | Select-Object -ExpandProperty Name` and verify each name matches `^task-\d+-[a-z0-9\-]+\.txt$`
+    - Expected Result: non-matching filename list is empty; otherwise fail
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-2-evidence-scaffold-error.txt`
+
+- [ ] 3. Documentation baseline snapshot
+
+  **What to do**:
+  - Capture a pre-live snapshot of `docs/qrevo-curv-2-flow-command-check.md` headings and current tested sections.
+
+  **Must NOT do**:
+  - Do not overwrite historical pre-login/help outputs.
+
+  **Recommended Agent Profile**:
+  - **Category**: `writing`
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: YES
+  - **Parallel Group**: Wave 1
+  - **Blocks**: T10
+  - **Blocked By**: None
+
+  **References**:
+  - `docs/qrevo-curv-2-flow-command-check.md` - target doc to extend with live-authenticated results.
+
+  **Acceptance Criteria**:
+  - [ ] Snapshot evidence created and linked in final doc update.
+
+  **QA Scenarios**:
+  - Scenario: Baseline captured
+    - Tool: Bash
+    - Steps: read doc and store baseline summary
+    - Expected Result: baseline summary file exists
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-3-doc-baseline.txt`
+  - Scenario: Baseline file missing
+    - Tool: Bash
+    - Steps: run `if (!(Test-Path ".sisyphus/evidence/live-qrevo-curv-2-flow/task-3-doc-baseline.txt")) { Write-Output "baseline missing"; exit 1 }`
+    - Expected Result: exits non-zero with `baseline missing` when snapshot absent
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-3-doc-baseline-error.txt`
+
+- [ ] 4. Live login via email code flow
+
+  **What to do**:
+  - Execute `uv run roborock login --email pmaclyman@gmail.com --reauth` to force email-code flow even if cache exists.
+  - Complete email code prompt and capture raw terminal output.
+
+  **Must NOT do**:
+  - Do not continue if login fails; capture failure and stop execution wave.
+
+  **Recommended Agent Profile**:
+  - **Category**: `unspecified-high`
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: NO
+  - **Parallel Group**: Wave 2 (sequential start)
+  - **Blocks**: T5
+  - **Blocked By**: T1
+
+  **References**:
+  - `roborock/cli.py:317-336` - login flow and email-code prompt behavior.
+
+  **Acceptance Criteria**:
+  - [ ] Command exits successfully and login success message is captured from reauth flow.
+
+  **QA Scenarios**:
+  - Scenario: Login success path
+    - Tool: Bash
+    - Steps: run `uv run roborock login --email pmaclyman@gmail.com --reauth` and complete code prompt
+    - Expected Result: login success output
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-4-login-success.txt`
+  - Scenario: Login failure handling
+    - Tool: Bash
+    - Steps: simulate expired/invalid code once
+    - Expected Result: clear error output recorded, then retry policy applied
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-4-login-failure.txt`
+
+- [ ] 5. Discover + list-devices + target confirmation
+
+  **What to do**:
+  - Run `uv run roborock discover` and `uv run roborock list-devices`.
+  - Confirm target `device_id` maps to Qrevo Curv 2 Flow name.
+  - Run `uv run roborock get-device-info` and verify live model string `roborock.vacuum.a245` appears in output.
+
+  **Must NOT do**:
+  - Do not proceed to actuating commands until device id is explicitly pinned.
+
+  **Recommended Agent Profile**:
+  - **Category**: `unspecified-high`
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: NO
+  - **Parallel Group**: Wave 2
+  - **Blocks**: T6, T7, T8, T9
+  - **Blocked By**: T4
+
+  **References**:
+  - `roborock/cli.py:366-387` - discover and list_devices implementation and output format.
+  - `roborock/cli.py:943-1018` - `get-device-info` emits live model/protocol data.
+  - `tests/testdata/home_data_device_a245.json:2-14` - expected naming/model clues for device mapping.
+
+  **Acceptance Criteria**:
+  - [ ] Device list output contains selected target device id and name.
+  - [ ] Live `get-device-info` output confirms model `roborock.vacuum.a245`.
+
+  **QA Scenarios**:
+  - Scenario: Successful device discovery
+    - Tool: Bash
+    - Steps: run discover then list-devices
+    - Expected Result: target device appears in JSON output
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-5-discovery.txt`
+  - Scenario: Multi-device ambiguity
+    - Tool: Bash
+    - Steps: if multiple devices are returned, capture explicit selected id mapping
+    - Expected Result: one pinned target id saved in evidence
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-5-device-selection.txt`
+  - Scenario: Live model confirmation
+    - Tool: Bash
+    - Steps: run `uv run roborock get-device-info` and capture model line for target device
+    - Expected Result: output contains `model: roborock.vacuum.a245`
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-5-model-confirmation.txt`
+
+- [ ] 6. Baseline read-only sweep
+
+  **What to do**:
+  - Run and capture: `status`, `features`, `home`, `maps`, `consumables`, `clean-summary`, `clean-record`, `network-info`, `volume`.
+
+  **Must NOT do**:
+  - Do not modify settings in this task.
+
+  **Recommended Agent Profile**:
+  - **Category**: `unspecified-high`
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: YES (per-command workers)
+  - **Parallel Group**: Wave 2
+  - **Blocks**: T7, T10
+  - **Blocked By**: T2, T5
+
+  **References**:
+  - `roborock/cli.py:455-764` - read-only V1 trait commands and expected output behavior.
+
+  **Acceptance Criteria**:
+  - [ ] All baseline commands have output files and outcome classification.
+
+  **QA Scenarios**:
+  - Scenario: Read-only command set execution
+    - Tool: Bash
+    - Steps: execute each command with pinned `device_id`
+    - Expected Result: each command returns output or explicit unsupported message
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-6-readonly-sweep.txt`
+  - Scenario: Invalid device id negative case
+    - Tool: Bash
+    - Steps: run one read-only command with invalid id
+    - Expected Result: explicit error message captured
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-6-invalid-device.txt`
+
+- [ ] 7. Actuating command sweep (approved list)
+
+  **What to do**:
+  - Execute approved actuating commands with pre/post `status` checks.
+  - Use this explicit allowlist in order:
+    1) `uv run roborock set-volume --device_id <id> --volume 80`
+    2) `uv run roborock dnd --device_id <id> --enabled true`
+    3) `uv run roborock dnd --device_id <id> --enabled false`
+    4) `uv run roborock led-status --device_id <id> --enabled false`
+    5) `uv run roborock led-status --device_id <id> --enabled true`
+    6) `uv run roborock flow-led-status --device_id <id> --enabled false`
+    7) `uv run roborock flow-led-status --device_id <id> --enabled true`
+    8) `uv run roborock child-lock --device_id <id> --enabled true`
+    9) `uv run roborock child-lock --device_id <id> --enabled false`
+    10) `uv run roborock command --device_id <id> --cmd app_start`
+    11) `uv run roborock command --device_id <id> --cmd app_pause`
+    12) `uv run roborock command --device_id <id> --cmd app_stop`
+    13) `uv run roborock command --device_id <id> --cmd app_charge`
+
+  **Must NOT do**:
+  - Do not run excluded commands: `reset-consumable`, `execute-scene`, `parser`, `update-docs`, q10-only commands on a245 unless testing unsupported behavior intentionally.
+
+  **Recommended Agent Profile**:
+  - **Category**: `unspecified-high`
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: LIMITED (non-movement toggles can parallelize; movement sequential)
+  - **Parallel Group**: Wave 3
+  - **Blocks**: T8, T9, T10
+  - **Blocked By**: T1, T2, T5, T6
+
+  **References**:
+  - `roborock/cli.py:506-699` - mutating V1 controls (volume, locks, dnd, leds).
+  - `roborock/cli.py:782-804` - generic `command` dispatch path for V1/B01.
+  - `roborock/roborock_typing.py:27,38,58,66` - command enum values used in allowlist (`app_charge`, `app_pause`, `app_start`, `app_stop`).
+
+  **Acceptance Criteria**:
+  - [ ] Each approved actuating command has pre-status, command output, post-status evidence.
+
+  **QA Scenarios**:
+  - Scenario: Reversible toggle command
+    - Tool: Bash
+    - Steps: capture status -> set toggle -> verify status change -> revert -> verify restore
+    - Expected Result: controlled change and successful rollback
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-7-toggle-roundtrip.txt`
+  - Scenario: Movement command safety validation
+    - Tool: Bash
+    - Steps: issue approved movement command; monitor and capture post-status immediately
+    - Expected Result: behavior matches command intent OR explicit safe abort recorded
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-7-movement.txt`
+
+- [ ] 8. Unsupported/error-path sweep
+
+  **What to do**:
+  - Intentionally test known non-primary path commands (e.g., `q10-*`) and capture unsupported/protocol mismatch responses.
+  - Classify failures by cause: unsupported, state-blocked, auth/cache, other error.
+
+  **Must NOT do**:
+  - Do not retry dangerous commands repeatedly after first failure classification.
+
+  **Recommended Agent Profile**:
+  - **Category**: `unspecified-high`
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: YES (non-actuating error-path checks)
+  - **Parallel Group**: Wave 3
+  - **Blocks**: T10
+  - **Blocked By**: T5, T7
+
+  **References**:
+  - `roborock/cli.py:442-447` - Q10 protocol mismatch message.
+  - `roborock/cli.py:1212-1337` - q10 command set to validate unsupported outcomes on a245.
+
+  **Acceptance Criteria**:
+  - [ ] Error-path commands are categorized and documented with raw output.
+
+  **QA Scenarios**:
+  - Scenario: Protocol mismatch expected behavior
+    - Tool: Bash
+    - Steps: run one q10 command on a245 device_id
+    - Expected Result: unsupported/protocol mismatch output
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-8-q10-unsupported.txt`
+  - Scenario: Unexpected success on q10 command
+    - Tool: Bash
+    - Steps: if q10 command unexpectedly succeeds, capture follow-up status and classify as behavior anomaly
+    - Expected Result: anomaly flagged and isolated from approved sweep
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-8-q10-anomaly.txt`
+
+- [ ] 9. Safe-state return + final status verification
+
+  **What to do**:
+  - Ensure robot is idle or docked and not in an unintended active mode.
+  - Capture final `status` and summarize final state.
+
+  **Must NOT do**:
+  - Do not end session while robot remains in active cleaning mode unless user explicitly approves.
+
+  **Recommended Agent Profile**:
+  - **Category**: `unspecified-high`
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: NO
+  - **Parallel Group**: Wave 3
+  - **Blocks**: T10
+  - **Blocked By**: T5, T7
+
+  **References**:
+  - `roborock/cli.py:455-459` - status command for final-state verification.
+
+  **Acceptance Criteria**:
+  - [ ] Final-state evidence confirms safe termination condition.
+
+  **QA Scenarios**:
+  - Scenario: Final safe state
+    - Tool: Bash
+    - Steps: run status, verify idle/docked indicators in output
+    - Expected Result: safe final state recorded
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-9-final-state.txt`
+  - Scenario: Unsafe final state detected
+    - Tool: Bash
+    - Steps: run final status check and detect active-cleaning indicators
+    - Expected Result: trigger remediation command path and re-check
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-9-final-state-error.txt`
+
+- [ ] 10. Publish live-results documentation update
+
+  **What to do**:
+  - Update `docs/qrevo-curv-2-flow-command-check.md` with: exact live commands, raw outputs, command matrix, unsupported/error analysis, and safety notes.
+  - Clearly separate historical pre-login/help outputs from new authenticated live results.
+
+  **Must NOT do**:
+  - Do not claim any command as tested without evidence artifact reference.
+
+  **Recommended Agent Profile**:
+  - **Category**: `writing`
+  - **Skills**: `[]`
+
+  **Parallelization**:
+  - **Can Run In Parallel**: NO
+  - **Parallel Group**: Wave 3 end
+  - **Blocks**: FINAL verification wave
+  - **Blocked By**: T2, T3, T6, T7, T8, T9
+
+  **References**:
+  - `docs/qrevo-curv-2-flow-command-check.md` - destination report.
+  - `.sisyphus/evidence/live-qrevo-curv-2-flow/*` - required evidence sources.
+
+  **Acceptance Criteria**:
+  - [ ] Documentation includes complete tested command matrix + evidence links.
+
+  **QA Scenarios**:
+  - Scenario: Documentation completeness
+    - Tool: Bash
+    - Steps: verify each matrix row has command, outcome, and evidence path
+    - Expected Result: no missing evidence references
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-10-doc-validation.txt`
+  - Scenario: Missing row/evidence detection
+    - Tool: Bash
+    - Steps: run `Select-String -Path "docs/qrevo-curv-2-flow-command-check.md" -Pattern "Evidence:"` and compare count to tested-command matrix rows; fail if counts differ
+    - Expected Result: evidence-link count equals command-matrix row count
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/task-10-doc-validation-error.txt`
+
+---
+
+## Final Verification Wave (MANDATORY)
+
+- [ ] F1. **Plan Compliance Audit** — `oracle`
+  Verify each planned task has evidence artifact and command output.
+
+  **QA Scenarios**:
+  - Scenario: Must-have audit
+    - Tool: Bash
+    - Steps: verify required files exist (`docs/qrevo-curv-2-flow-command-check.md`, evidence folder, command matrix section)
+    - Expected Result: all required artifacts present
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/final-f1-compliance.txt`
+  - Scenario: Must-not-have audit
+    - Tool: Bash
+    - Steps: search docs/evidence for excluded commands (`reset-consumable`, `execute-scene`, `update-docs`, `parser` as executed steps)
+    - Expected Result: none found as executed live commands
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/final-f1-compliance-error.txt`
+
+- [ ] F2. **Output/Evidence Integrity Review** — `unspecified-high`
+  Validate logs are complete, timestamps ordered, and command/output pairs are intact.
+
+  **QA Scenarios**:
+  - Scenario: Evidence completeness
+    - Tool: Bash
+    - Steps: enumerate expected evidence files for T1-T10 and verify all exist
+    - Expected Result: 100% expected files present
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/final-f2-integrity.txt`
+  - Scenario: Corrupt/incomplete log detection
+    - Tool: Bash
+    - Steps: scan evidence files for empty content and missing command/output markers
+    - Expected Result: zero empty/invalid files
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/final-f2-integrity-error.txt`
+
+- [ ] F3. **Manual QA Replay (High-Risk subset)** — `unspecified-high`
+  Re-run key actuating commands with strict safety checks and compare outcomes.
+
+  **QA Scenarios**:
+  - Scenario: High-risk replay pass
+    - Tool: Bash
+    - Steps: rerun selected movement/reversible commands with pre/post status capture
+    - Expected Result: outcomes consistent with original run
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/final-f3-replay.txt`
+  - Scenario: Replay divergence handling
+    - Tool: Bash
+    - Steps: if mismatch occurs, record divergence details and classification
+    - Expected Result: mismatch documented with command, expected, actual, remediation
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/final-f3-replay-error.txt`
+
+- [ ] F4. **Scope Fidelity Check** — `deep`
+  Ensure only approved commands were tested and no excluded/destructive operations were run.
+
+  **Approved Allowlist for comparison**:
+  - `set-volume 80`
+  - `dnd --enabled true/false`
+  - `led-status --enabled false/true`
+  - `flow-led-status --enabled false/true`
+  - `child-lock --enabled true/false`
+  - `command --cmd app_start`
+  - `command --cmd app_pause`
+  - `command --cmd app_stop`
+  - `command --cmd app_charge`
+
+  **QA Scenarios**:
+  - Scenario: Scope compliance pass
+    - Tool: Bash
+    - Steps: compare executed command list to approved allowlist in this plan
+    - Expected Result: all executed commands are in allowlist or marked planned-negative-path
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/final-f4-scope.txt`
+  - Scenario: Scope violation detection
+    - Tool: Bash
+    - Steps: detect any executed command not in allowlist or marked excluded
+    - Expected Result: zero unapproved commands executed
+    - Evidence: `.sisyphus/evidence/live-qrevo-curv-2-flow/final-f4-scope-error.txt`
+
+---
+
+## Commit Strategy
+
+- `docs(qrevo): add live command validation outputs and evidence references`
+
+---
+
+## Success Criteria
+
+### Verification Commands
+```bash
+uv run roborock --version
+uv run roborock login --email pmaclyman@gmail.com
+uv run roborock discover
+uv run roborock list-devices
+uv run roborock status --device_id <device_id>
+```
+
+### Final Checklist
+- [ ] Safety gate completed before movement commands
+- [ ] Live outputs captured for full approved command set
+- [ ] Robot returned to safe final state
+- [ ] Docs updated with tested vs unsupported vs failed outcomes
+
+---
+
+<system-reminder>
+[ALL BACKGROUND TASKS FINISHED - 1 FAILED]
+
+**Failed:**
+- `bg_d9edf352`: Map CLI command handlers [ERROR] - Model not found: kimi-for-coding/k2.5.
+
+Use `background_output(task_id="<id>")` to retrieve each result.
+
+**ACTION REQUIRED:** 1 task(s) failed. Check errors above and decide whether to retry or proceed.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[BACKGROUND TASK ERROR]
+**ID:** `bg_c14623f2`
+**Description:** Research official roborock docs
+**Duration:** 0s
+**Error:** Model not found: kimi-for-coding/k2.5.
+
+**2 tasks still in progress.** You WILL be notified when ALL complete.
+**ACTION REQUIRED:** This task failed. Check the error and decide whether to retry, cancel remaining tasks, or continue.
+
+Use `background_output(task_id="bg_c14623f2")` to retrieve this result when ready.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[BACKGROUND TASK ERROR]
+**ID:** `bg_343a34a6`
+**Description:** Find docs and evidence patterns
+**Duration:** 0s
+**Error:** Model not found: kimi-for-coding/k2.5.
+
+**1 task still in progress.** You WILL be notified when ALL complete.
+**ACTION REQUIRED:** This task failed. Check the error and decide whether to retry, cancel remaining tasks, or continue.
+
+Use `background_output(task_id="bg_343a34a6")` to retrieve this result when ready.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[ALL BACKGROUND TASKS FINISHED - 3 FAILED]
+
+**Failed:**
+- `bg_c14623f2`: Research official roborock docs [ERROR] - Model not found: kimi-for-coding/k2.5.
+- `bg_343a34a6`: Find docs and evidence patterns [ERROR] - Model not found: kimi-for-coding/k2.5.
+- `bg_9d0f3d51`: Find GitHub usage examples [ERROR] - Model not found: kimi-for-coding/k2.5.
+
+Use `background_output(task_id="<id>")` to retrieve each result.
+
+**ACTION REQUIRED:** 3 task(s) failed. Check errors above and decide whether to retry or proceed.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[BACKGROUND TASK COMPLETED]
+**ID:** `bg_a6297ddc`
+**Description:** Find public usage examples
+**Duration:** 1m 57s
+
+**3 tasks still in progress.** You WILL be notified when ALL complete.
+Do NOT poll - continue productive work.
+
+Use `background_output(task_id="bg_a6297ddc")` to retrieve this result when ready.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[BACKGROUND TASK COMPLETED]
+**ID:** `bg_e9582bfc`
+**Description:** Research official references
+**Duration:** 2m 24s
+
+**2 tasks still in progress.** You WILL be notified when ALL complete.
+Do NOT poll - continue productive work.
+
+Use `background_output(task_id="bg_e9582bfc")` to retrieve this result when ready.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[BACKGROUND TASK COMPLETED]
+**ID:** `bg_a5831fd3`
+**Description:** Find docs evidence patterns
+**Duration:** 3m 58s
+
+**1 task still in progress.** You WILL be notified when ALL complete.
+Do NOT poll - continue productive work.
+
+Use `background_output(task_id="bg_a5831fd3")` to retrieve this result when ready.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[ALL BACKGROUND TASKS COMPLETE]
+
+**Completed:**
+- `bg_a6297ddc`: Find public usage examples
+- `bg_e9582bfc`: Research official references
+- `bg_a5831fd3`: Find docs evidence patterns
+- `bg_37282938`: Map local CLI handlers
+
+Use `background_output(task_id="<id>")` to retrieve each result.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[ALL BACKGROUND TASKS FINISHED - 1 FAILED]
+
+**Failed:**
+- `bg_70f69549`: T4 live login reauth [ERROR] - Model not found: kimi-for-coding/k2.5.
+
+Use `background_output(task_id="<id>")` to retrieve each result.
+
+**ACTION REQUIRED:** 1 task(s) failed. Check errors above and decide whether to retry or proceed.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 0/3 completed, 3 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+- [pending] Pass Final Verification Wave with all reviewers APPROVE
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 0/3 completed, 3 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [pending] Resolve T4 interactive email-code login blocker
+- [pending] Pass Final Verification Wave with all reviewers APPROVE
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 0/3 completed, 3 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+- [pending] Pass Final Verification Wave with all reviewers APPROVE
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[ALL BACKGROUND TASKS FINISHED - 1 FAILED]
+
+**Failed:**
+- `bg_d270e8f5`: T10 documentation update [ERROR] - Model not found: kimi-for-coding/k2.5.
+
+Use `background_output(task_id="<id>")` to retrieve each result.
+
+**ACTION REQUIRED:** 1 task(s) failed. Check errors above and decide whether to retry or proceed.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[BACKGROUND TASK ERROR]
+**ID:** `bg_5a022834`
+**Description:** F2 integrity review
+**Duration:** 0s
+**Error:** Model not found: kimi-for-coding/k2.5.
+
+**1 task still in progress.** You WILL be notified when ALL complete.
+**ACTION REQUIRED:** This task failed. Check the error and decide whether to retry, cancel remaining tasks, or continue.
+
+Use `background_output(task_id="bg_5a022834")` to retrieve this result when ready.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[ALL BACKGROUND TASKS FINISHED - 2 FAILED]
+
+**Failed:**
+- `bg_5a022834`: F2 integrity review [ERROR] - Model not found: kimi-for-coding/k2.5.
+- `bg_3e490009`: F3 replay high-risk [ERROR] - Model not found: kimi-for-coding/k2.5.
+
+Use `background_output(task_id="<id>")` to retrieve each result.
+
+**ACTION REQUIRED:** 2 task(s) failed. Check errors above and decide whether to retry or proceed.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 1/3 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 1/3 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 1/3 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+What was the outcome?
+
+---
+
+Did you request the one-time password yet?
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 1/3 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+run it now
+
+---
+
+run it now
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 1/3 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+Run immediately. Here it is. 025630
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 1/3 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 1/3 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 1/3 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[analyze-mode]
+ANALYSIS MODE. Gather context before diving deep:
+CONTEXT GATHERING (parallel):
+- 1-2 explore agents (codebase patterns, implementations)
+- 1-2 librarian agents (if external library involved)
+- Direct tools: Grep, AST-grep, LSP for targeted searches
+
+IF COMPLEX - DO NOT STRUGGLE ALONE. Consult specialists:
+- **Oracle**: Conventional problems (architecture, debugging, complex logic)
+- **Artistry**: Non-conventional problems (different approach needed)
+
+SYNTHESIZE findings before proceeding.
+---
+MANDATORY delegate_task params: ALWAYS include load_skills=[] and run_in_background when calling delegate_task.
+Example: delegate_task(subagent_type="explore", prompt="...", run_in_background=true, load_skills=[])
+
+---
+
+why does this keep failing, you had the OTP, whatever you're doign is wrong. THIS OTP IS GOOD FOR THE NEXT 15 MINUTES. DEBUG: 666164
+
+---
+
+<system-reminder>
+[BACKGROUND TASK COMPLETED]
+**ID:** `bg_cf6449a0`
+**Description:** Find CLI auth alternatives
+**Duration:** 2m 24s
+
+**2 tasks still in progress.** You WILL be notified when ALL complete.
+Do NOT poll - continue productive work.
+
+Use `background_output(task_id="bg_cf6449a0")` to retrieve this result when ready.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[BACKGROUND TASK COMPLETED]
+**ID:** `bg_9f7649a4`
+**Description:** Assess direct code login
+**Duration:** 1m 39s
+
+**1 task still in progress.** You WILL be notified when ALL complete.
+Do NOT poll - continue productive work.
+
+Use `background_output(task_id="bg_9f7649a4")` to retrieve this result when ready.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<system-reminder>
+[ALL BACKGROUND TASKS COMPLETE]
+
+**Completed:**
+- `bg_cf6449a0`: Find CLI auth alternatives
+- `bg_9f7649a4`: Assess direct code login
+- `bg_ea248c74`: Trace auth code flow
+
+Use `background_output(task_id="<id>")` to retrieve each result.
+</system-reminder>
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 1/4 completed, 3 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+- [in_progress] Debug OTP invalidation cause and use correct login flow
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 2/4 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 2/4 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 2/4 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 2/4 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 2/4 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 3/5 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 3/5 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 3/5 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 3/5 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 3/5 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 3/5 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 3/5 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 3/5 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+look back on the history of this conversation and earlier conversations, you've said that 6 or 8 yimes, and you haven't been able to enter it
+
+---
+
+that doesn't even make any sense, how are you going to enter the password. that request will jsut time out wont it? give me the damn command
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+right but how are you going to get the code, you don't automatically scrape my email
+
+---
+
+right, so are those separte commands
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+what's the command if I want to run the regular flow myself, with interactive login
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[SYSTEM DIRECTIVE: OH-MY-OPENCODE - TODO CONTINUATION]
+
+Incomplete tasks remain in your todo list. Continue working on the next pending task.
+
+- Proceed without asking for permission
+- Mark each task complete when finished
+- Do not stop until all tasks are done
+- If you believe all work is already complete, the system is questioning your completion claim. Critically re-examine each todo item from a skeptical perspective, verify the work was actually done correctly, and update the todo list accordingly.
+
+[Status: 4/6 completed, 2 remaining]
+
+Remaining tasks:
+- [in_progress] Complete ALL implementation tasks in live-qrevo-curv-2-flow-tests plan
+- [in_progress] Resolve T4 interactive email-code login blocker
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+[restore checkpointed session agent configuration after compaction]
+<!-- OMO_INTERNAL_INITIATOR -->
+
+---
+
+<ultrawork-mode>
+
+**MANDATORY**: You MUST say "ULTRAWORK MODE ENABLED!" to the user as your first response when this mode activates. This is non-negotiable.
+
+[CODE RED] Maximum precision required. Think deeply before acting.
+
+<output_verbosity_spec>
+- Default: 1-2 short paragraphs. Do not default to bullets.
+- Simple yes/no questions: ≤2 sentences.
+- Complex multi-file tasks: 1 overview paragraph + up to 4 high-level sections grouped by outcome, not by file.
+- Use lists only when content is inherently list-shaped (distinct items, steps, options).
+- Do not rephrase the user's request unless it changes semantics.
+</output_verbosity_spec>
+
+<scope_constraints>
+- Implement EXACTLY and ONLY what the user requests
+- No extra features, no added components, no embellishments
+- If any instruction is ambiguous, choose the simplest valid interpretation
+- Do NOT expand the task beyond what was asked
+</scope_constraints>
+
+## CERTAINTY PROTOCOL
+
+**Before implementation, ensure you have:**
+- Full understanding of the user's actual intent
+- Explored the codebase to understand existing patterns
+- A clear work plan (mental or written)
+- Resolved any ambiguities through exploration (not questions)
+
+<uncertainty_handling>
+- If the question is ambiguous or underspecified:
+  - EXPLORE FIRST using tools (grep, file reads, explore agents)
+  - If still unclear, state your interpretation and proceed
+  - Ask clarifying questions ONLY as last resort
+- Never fabricate exact figures, line numbers, or references when uncertain
+- Prefer "Based on the provided context..." over absolute claims when unsure
+</uncertainty_handling>
+
+## DECISION FRAMEWORK: Self vs Delegate
+
+**Evaluate each task against these criteria to decide:**
+
+| Complexity | Criteria | Decision |
+|------------|----------|----------|
+| **Trivial** | <10 lines, single file, obvious pattern | **DO IT YOURSELF** |
+| **Moderate** | Single domain, clear pattern, <100 lines | **DO IT YOURSELF** (faster than delegation overhead) |
+| **Complex** | Multi-file, unfamiliar domain, >100 lines, needs specialized expertise | **DELEGATE** to appropriate category+skills |
+| **Research** | Need broad codebase context or external docs | **DELEGATE** to explore/librarian (background, parallel) |
+
+**Decision Factors:**
+- Delegation overhead ≈ 10-15 seconds. If task takes less, do it yourself.
+- If you already have full context loaded, do it yourself.
+- If task requires specialized expertise (frontend-ui-ux, git operations), delegate.
+- If you need information from multiple sources, fire parallel background agents.
+
+## AVAILABLE RESOURCES
+
+Use these when they provide clear value based on the decision framework above:
+
+| Resource | When to Use | How to Use |
+|----------|-------------|------------|
+| explore agent | Need codebase patterns you don't have | `task(subagent_type="explore", load_skills=[], run_in_background=true, ...)` |
+| librarian agent | External library docs, OSS examples | `task(subagent_type="librarian", load_skills=[], run_in_background=true, ...)` |
+| oracle agent | Stuck on architecture/debugging after 2+ attempts | `task(subagent_type="oracle", load_skills=[], ...)` |
+| plan agent | Complex multi-step with dependencies (5+ steps) | `task(subagent_type="plan", load_skills=[], ...)` |
+| task category | Specialized work matching a category | `task(category="...", load_skills=[...])` |
+
+<tool_usage_rules>
+- Prefer tools over internal knowledge for fresh or user-specific data
+- Parallelize independent reads (read_file, grep, explore, librarian) to reduce latency
+- After any write/update, briefly restate: What changed, Where (path), Follow-up needed
+</tool_usage_rules>
+
+## EXECUTION PATTERN
+
+**Context gathering uses TWO parallel tracks:**
+
+| Track | Tools | Speed | Purpose |
+|-------|-------|-------|---------|
+| **Direct** | Grep, Read, LSP, AST-grep | Instant | Quick wins, known locations |
+| **Background** | explore, librarian agents | Async | Deep search, external docs |
+
+**ALWAYS run both tracks in parallel:**
+```
+// Fire background agents for deep exploration
+task(subagent_type="explore", load_skills=[], prompt="I'm implementing [TASK] and need to understand [KNOWLEDGE GAP]. Find [X] patterns in the codebase - file paths, implementation approach, conventions used, and how modules connect. I'll use this to [DOWNSTREAM DECISION]. Focus on production code in src/. Return file paths with brief descriptions.", run_in_background=true)
+task(subagent_type="librarian", load_skills=[], prompt="I'm working with [TECHNOLOGY] and need [SPECIFIC INFO]. Find official docs and production examples for [Y] - API reference, configuration, recommended patterns, and pitfalls. Skip tutorials. I'll use this to [DECISION THIS INFORMS].", run_in_background=true)
+
+// WHILE THEY RUN - use direct tools for immediate context
+grep(pattern="relevant_pattern", path="src/")
+read_file(filePath="known/important/file.ts")
+
+// Collect background results when ready
+deep_context = background_output(task_id=...)
+
+// Merge ALL findings for comprehensive understanding
+```
+
+**Plan agent (complex tasks only):**
+- Only if 5+ interdependent steps
+- Invoke AFTER gathering context from both tracks
+
+**Execute:**
+- Surgical, minimal changes matching existing patterns
+- If delegating: provide exhaustive context and success criteria
+
+**Verify:**
+- `lsp_diagnostics` on modified files
+- Run tests if available
+
+## ACCEPTANCE CRITERIA WORKFLOW
+
+**BEFORE implementation**, define what "done" means in concrete, binary terms:
+
+1. Write acceptance criteria as pass/fail conditions (not "should work" - specific observable outcomes)
+2. Record them in your TODO/Task items with a "QA: [how to verify]" field
+3. Work toward those criteria, not just "finishing code"
+
+## QUALITY STANDARDS
+
+| Phase | Action | Required Evidence |
+|-------|--------|-------------------|
+| Build | Run build command | Exit code 0 |
+| Test | Execute test suite | All tests pass |
+| Lint | Run lsp_diagnostics | Zero new errors |
+| **Manual QA** | **Execute the feature yourself** | **Actual output shown** |
+
+<MANUAL_QA_MANDATE>
+### MANUAL QA IS MANDATORY. lsp_diagnostics IS NOT ENOUGH.
+
+lsp_diagnostics catches type errors. It does NOT catch logic bugs, missing behavior, or broken features. After EVERY implementation, you MUST manually test the actual feature.
+
+**Execute ALL that apply:**
+
+| If your change... | YOU MUST... |
+|---|---|
+| Adds/modifies a CLI command | Run the command with Bash. Show the output. |
+| Changes build output | Run the build. Verify output files. |
+| Modifies API behavior | Call the endpoint. Show the response. |
+| Adds a new tool/hook/feature | Test it end-to-end in a real scenario. |
+| Modifies config handling | Load the config. Verify it parses correctly. |
+
+**"This should work" is NOT evidence. RUN IT. Show what happened. That is evidence.**
+</MANUAL_QA_MANDATE>
+
+## COMPLETION CRITERIA
+
+A task is complete when:
+1. Requested functionality is fully implemented (not partial, not simplified)
+2. lsp_diagnostics shows zero errors on modified files
+3. Tests pass (or pre-existing failures documented)
+4. Code matches existing codebase patterns
+5. **Manual QA executed - actual feature tested, output observed and reported**
+
+**Deliver exactly what was asked. No more, no less.**
+
+</ultrawork-mode>
+
+
+
+[search-mode]
+MAXIMIZE SEARCH EFFORT. Launch multiple background agents IN PARALLEL:
+- explore agents (codebase patterns, file structures, ast-grep)
+- librarian agents (remote repos, official docs, GitHub examples)
+Plus direct tools: Grep, ripgrep (rg), ast-grep (sg)
+NEVER stop at first result - be exhaustive.
+
+[analyze-mode]
+ANALYSIS MODE. Gather context before diving deep:
+CONTEXT GATHERING (parallel):
+- 1-2 explore agents (codebase patterns, implementations)
+- 1-2 librarian agents (if external library involved)
+- Direct tools: Grep, AST-grep, LSP for targeted searches
+
+IF COMPLEX - DO NOT STRUGGLE ALONE. Consult specialists:
+- **Oracle**: Conventional problems (architecture, debugging, complex logic)
+- **Artistry**: Non-conventional problems (different approach needed)
+
+SYNTHESIZE findings before proceeding.
+---
+MANDATORY delegate_task params: ALWAYS include load_skills=[] and run_in_background when calling delegate_task.
+Example: delegate_task(subagent_type="explore", prompt="...", run_in_background=true, load_skills=[])
+
+---
+
+<auto-slash-command>
+# /oh-my-claudecode:cancel Command
+
+**Description**: (plugin: oh-my-claudecode - Skill) Cancel any active OMC mode (autopilot, ralph, ultrawork, ultraqa, swarm, ultrapilot, pipeline, team)
+
+**Scope**: plugin
+
+---
+
+## Command Instructions
+
+<skill-instruction>
+Base directory for this skill: C:\Users\pmacl\.claude\plugins\cache\omc\oh-my-claudecode\4.11.2\skills\cancel/
+File references ([file not found: C:\_projects\python-roborock\path)] in this skill are relative to this directory.
+
+# Cancel Skill
+
+Intelligent cancellation that detects and cancels the active OMC mode.
+
+**The cancel skill is the standard way to complete and exit any OMC mode.**
+When the stop hook detects work is complete, it instructs the LLM to invoke
+this skill for proper state cleanup. If cancel fails or is interrupted,
+retry with `--force` flag, or wait for the 2-hour staleness timeout as
+a last resort.
+
+## What It Does
+
+Automatically detects which mode is active and cancels it:
+- **Autopilot**: Stops workflow, preserves progress for resume
+- **Ralph**: Stops persistence loop, clears linked ultrawork if applicable
+- **Ultrawork**: Stops parallel execution (standalone or linked)
+- **UltraQA**: Stops QA cycling workflow
+- **Swarm**: Stops coordinated agent swarm, releases claimed tasks
+- **Ultrapilot**: Stops parallel autopilot workers
+- **Pipeline**: Stops sequential agent pipeline
+- **Team**: Sends shutdown_request to all teammates, waits for responses, calls TeamDelete, clears linked ralph if present
+- **Team+Ralph (linked)**: Cancels team first (graceful shutdown), then clears ralph state. Cancelling ralph when linked also cancels team first.
+
+## Usage
+
+```
+/oh-my-claudecode:cancel
+```
+
+Or say: "cancelomc", "stopomc"
+
+## Critical: Deferred Tool Handling
+
+The state management tools (`state_clear`, `state_read`, `state_write`, `state_list_active`,
+`state_get_status`) may be registered as **deferred tools** by Claude Code. Before calling
+any state tool, you MUST first load all of them via `ToolSearch`:
+
+```
+ToolSearch(query="select:mcp__plugin_oh-my-claudecode_t__state_clear,mcp__plugin_oh-my-claudecode_t__state_read,mcp__plugin_oh-my-claudecode_t__state_write,mcp__plugin_oh-my-claudecode_t__state_list_active,mcp__plugin_oh-my-claudecode_t__state_get_status")
+```
+
+If `state_clear` is unavailable or fails, use this **bash fallback** as an **emergency
+escape from the stop hook loop**. This is NOT a full replacement for the cancel flow —
+it only removes state files to unblock the session. Linked modes (e.g. ralph→ultrawork,
+autopilot→ralph/ultraqa) must be cleared separately by running the fallback once per mode.
+
+Replace `MODE` with the specific mode (e.g. `ralplan`, `ralph`, `ultrawork`, `ultraqa`).
+
+**WARNING:** Do NOT use this fallback for `autopilot` or `omc-teams`. Autopilot requires
+`state_write(active=false)` to preserve resume data. omc-teams requires tmux session
+cleanup that cannot be done via file deletion alone.
+
+```bash
+# Fallback: direct file removal when state_clear MCP tool is unavailable
+SESSION_ID="${CLAUDE_SESSION_ID:-${CLAUDECODE_SESSION_ID:-}}"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || { d="$PWD"; while [ "$d" != "/" ] && [ ! -d "$d/.omc" ]; do d="$(dirname "$d")"; done; echo "$d"; })"
+
+# Cross-platform SHA-256 (macOS: shasum, Linux: sha256sum)
+sha256portable() { printf '%s' "$1" | (sha256sum 2>/dev/null || shasum -a 256) | cut -c1-16; }
+
+# Resolve state directory (supports OMC_STATE_DIR centralized storage)
+if [ -n "${OMC_STATE_DIR:-}" ]; then
+  # Mirror getProjectIdentifier() from worktree-paths.ts
+  SOURCE="$(git remote get-url origin 2>/dev/null || echo "$REPO_ROOT")"
+  HASH="$(sha256portable "$SOURCE")"
+  DIR_NAME="$(basename "$REPO_ROOT" | sed 's/[^a-zA-Z0-9_-]/_/g')"
+  OMC_STATE="$OMC_STATE_DIR/${DIR_NAME}-${HASH}/state"
+  [ ! -d "$OMC_STATE" ] && { echo "ERROR: State dir not found at $OMC_STATE" >&2; exit 1; }
+elif [ "$REPO_ROOT" != "/" ] && [ -d "$REPO_ROOT/.omc" ]; then
+  OMC_STATE="$REPO_ROOT/.omc/state"
+else
+  echo "ERROR: Could not locate .omc state directory" >&2
+  exit 1
+fi
+MODE="ralplan"  # <-- replace with the target mode
+
+# Clear session-scoped state for the specific mode
+if [ -n "$SESSION_ID" ] && [ -d "$OMC_STATE/sessions/$SESSION_ID" ]; then
+  rm -f "$OMC_STATE/sessions/$SESSION_ID/${MODE}-state.json"
+  rm -f "$OMC_STATE/sessions/$SESSION_ID/${MODE}-stop-breaker.json"
+  rm -f "$OMC_STATE/sessions/$SESSION_ID/skill-active-state.json"
+  # Write cancel signal so stop hook detects cancellation in progress
+  NOW_ISO="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  EXPIRES_ISO="$(date -u -d "+30 seconds" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || python3 - <<'PY'\nfrom datetime import datetime, timedelta, timezone\nprint((datetime.now(timezone.utc) + timedelta(seconds=30)).strftime('%Y-%m-%dT%H:%M:%SZ'))\nPY\n)"
+  printf '{"active":true,"requested_at":"%s","expires_at":"%s","mode":"%s","source":"bash_fallback"}' \
+    "$NOW_ISO" "$EXPIRES_ISO" "$MODE" > "$OMC_STATE/sessions/$SESSION_ID/cancel-signal-state.json"
+fi
+
+# Clear legacy state only if no session ID (avoid clearing another session's state)
+if [ -z "$SESSION_ID" ]; then
+  rm -f "$OMC_STATE/${MODE}-state.json"
+fi
+```
+
+## Auto-Detection
+
+`/oh-my-claudecode:cancel` follows the session-aware state contract:
+- By default the command inspects the current session via `state_list_active` and `state_get_status`, navigating `.omc/state/sessions/{sessionId}/…` to discover which mode is active.
+- When a session id is provided or already known, that session-scoped path is authoritative. Legacy files in `.omc/state/*.json` are consulted only as a compatibility fallback if the session id is missing or empty.
+- Swarm is a shared SQLite/marker mode (`.omc/state/swarm.db` / `.omc/state/swarm-active.marker`) and is not session-scoped.
+- The default cleanup flow calls `state_clear` with the session id to remove only the matching session files; modes stay bound to their originating session.
+
+Active modes are still cancelled in dependency order:
+1. Autopilot (includes linked ralph/ultraqa/ cleanup)
+2. Ralph (cleans its linked ultrawork or )
+3. Ultrawork (standalone)
+4. UltraQA (standalone)
+5. Swarm (standalone)
+6. Ultrapilot (standalone)
+7. Pipeline (standalone)
+8. Team (Claude Code native)
+9. OMC Teams (tmux CLI workers)
+10. Plan Consensus (standalone)
+11. Self-Improve (standalone — clear state, clean orphaned worktrees, preserve iteration_state for resume, set status: "user_stopped" in .omc/self-improve/state/agent-settings.json)
+
+## Force Clear All
+
+Use `--force` or `--all` when you need to erase every session plus legacy artifacts, e.g., to reset the workspace entirely.
+
+```
+/oh-my-claudecode:cancel --force
+```
+
+```
+/oh-my-claudecode:cancel --all
+```
+
+Steps under the hood:
+1. `state_list_active` enumerates `.omc/state/sessions/{sessionId}/…` to find every known session.
+2. `state_clear` runs once per session to drop that session’s files.
+3. A global `state_clear` without `session_id` removes legacy files under `.omc/state/*.json`, `.omc/state/swarm*.db`, and compatibility artifacts (see list).
+4. Team artifacts (`~/.claude/teams/*/`, `~/.claude/tasks/*/`, `.omc/state/team-state.json`) are best-effort cleared as part of the legacy fallback.
+   - Cancel for native team does NOT affect omc-teams state, and vice versa.
+
+Every `state_clear` command honors the `session_id` argument, so even force mode still uses the session-aware paths first before deleting legacy files.
+
+Legacy compatibility list (removed only under `--force`/`--all`):
+- `.omc/state/autopilot-state.json`
+- `.omc/state/ralph-state.json`
+- `.omc/state/ralph-plan-state.json`
+- `.omc/state/ralph-verification.json`
+- `.omc/state/ultrawork-state.json`
+- `.omc/state/ultraqa-state.json`
+- `.omc/state/swarm.db`
+- `.omc/state/swarm.db-wal`
+- `.omc/state/swarm.db-shm`
+- `.omc/state/swarm-active.marker`
+- `.omc/state/swarm-tasks.db`
+- `.omc/state/ultrapilot-state.json`
+- `.omc/state/ultrapilot-ownership.json`
+- `.omc/state/pipeline-state.json`
+- `.omc/state/omc-teams-state.json`
+- `.omc/state/plan-consensus.json`
+- `.omc/state/ralplan-state.json`
+- `.omc/state/boulder.json`
+- `.omc/state/hud-state.json`
+- `.omc/state/subagent-tracking.json`
+- `.omc/state/subagent-tracker.lock`
+- `.omc/state/rate-limit-daemon.pid`
+- `.omc/state/rate-limit-daemon.log`
+- `.omc/state/checkpoints/` (directory)
+- `.omc/state/sessions/` (empty directory cleanup after clearing sessions)
+
+## Implementation Steps
+
+When you invoke this skill:
+
+### 1. Parse Arguments
+
+```bash
+# Check for --force or --all flags
+FORCE_MODE=false
+if [[ "$*" == *"--force"* ]] || [[ "$*" == *"--all"* ]]; then
+  FORCE_MODE=true
+fi
+```
+
+### 2. Detect Active Modes
+
+The skill now relies on the session-aware state contract rather than hard-coded file paths:
+1. Call `state_list_active` to enumerate `.omc/state/sessions/{sessionId}/…` and discover every active session.
+2. For each session id, call `state_get_status` to learn which mode is running (`autopilot`, `ralph`, `ultrawork`, etc.) and whether dependent modes exist.
+3. If a `session_id` was supplied to `/oh-my-claudecode:cancel`, skip legacy fallback entirely and operate solely within that session path; otherwise, consult legacy files in `.omc/state/*.json` only if the state tools report no active session. Swarm remains a shared SQLite/marker mode outside session scoping.
+4. Any cancellation logic in this doc mirrors the dependency order discovered via state tools (autopilot → ralph → …).
+
+### 3A. Force Mode (if --force or --all)
+
+Use force mode to clear every session plus legacy artifacts via `state_clear`. Direct file removal is reserved for legacy cleanup when the state tools report no active sessions.
+
+### 3B. Smart Cancellation (default)
+
+#### If Team Active (Claude Code native)
+
+Teams are detected by checking for config files in `${CLAUDE_CONFIG_DIR:-~/.claude}/teams/`:
+
+```bash
+# Check for active teams
+TEAM_CONFIGS=$(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/teams -name config.json -maxdepth 2 2>/dev/null)
+```
+
+**Two-pass cancellation protocol:**
+
+**Pass 1: Graceful Shutdown**
+```
+For each team found in ${CLAUDE_CONFIG_DIR:-~/.claude}/teams/:
+  1. Read config.json to get team_name and members list
+  2. For each non-lead member:
+     a. Send shutdown_request via SendMessage
+     b. Wait up to 15 seconds for shutdown_response
+     c. If response received: member terminates and is auto-removed
+     d. If timeout: mark member as unresponsive, continue to next
+  3. Log: "Graceful pass: X/Y members responded"
+```
+
+**Pass 2: Reconciliation**
+```
+After graceful pass:
+  1. Re-read config.json to check remaining members
+  2. If only lead remains (or config is empty): proceed to TeamDelete
+  3. If unresponsive members remain:
+     a. Wait 5 more seconds (they may still be processing)
+     b. Re-read config.json again
+     c. If still stuck: attempt TeamDelete anyway
+     d. If TeamDelete fails: report manual cleanup path
+```
+
+**TeamDelete + Cleanup:**
+```
+  1. Call TeamDelete() — removes ~/.claude/teams/{name}/ and ~/.claude/tasks/{name}/
+  2. Clear team state: state_clear(mode="team")
+  3. Check for linked ralph: state_read(mode="ralph") — if linked_team is true:
+     a. Clear ralph state: state_clear(mode="ralph")
+     b. Clear linked ultrawork if present: state_clear(mode="ultrawork")
+  4. Run orphan scan (see below)
+  5. Emit structured cancel report
+```
+
+**Orphan Detection (Post-Cleanup):**
+
+After TeamDelete, verify no agent processes remain:
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-orphans.mjs" --team-name "{team_name}"
+```
+
+The orphan scanner:
+1. Checks `ps aux` (Unix) or `tasklist` (Windows) for processes with `--team-name` matching the deleted team
+2. For each orphan whose team config no longer exists: sends SIGTERM, waits 5s, sends SIGKILL if still alive
+3. Reports cleanup results as JSON
+
+Use `--dry-run` to inspect without killing. The scanner is safe to run multiple times.
+
+**Structured Cancel Report:**
+```
+Team "{team_name}" cancelled:
+  - Members signaled: N
+  - Responses received: M
+  - Unresponsive: K (list names if any)
+  - TeamDelete: success/failed
+  - Manual cleanup needed: yes/no
+    Path: ~/.claude/teams/{name}/ and ~/.claude/tasks/{name}/
+```
+
+**Implementation note:** The cancel skill is executed by the LLM, not as a bash script. When you detect an active team:
+1. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/teams/*/config.json` to find active teams
+2. If multiple teams exist, cancel oldest first (by `createdAt`)
+3. For each non-lead member, call `SendMessage(type: "shutdown_request", recipient: member-name, content: "Cancelling")`
+4. Wait briefly for shutdown responses (15s per member timeout)
+5. Re-read config.json to check for remaining members (reconciliation pass)
+6. Call `TeamDelete()` to clean up
+7. Clear team state: `state_clear(mode="team", session_id)`
+8. Report structured summary to user
+
+#### If Autopilot Active
+
+Autopilot handles its own cleanup including linked ralph and ultraqa.
+
+1. Read autopilot state via `state_read(mode="autopilot", session_id)` to get current phase
+2. Check for linked ralph via `state_read(mode="ralph", session_id)`:
+   - If ralph is active and has `linked_ultrawork: true`, clear ultrawork first: `state_clear(mode="ultrawork", session_id)`
+   - Clear ralph: `state_clear(mode="ralph", session_id)`
+3. Check for linked ultraqa via `state_read(mode="ultraqa", session_id)`:
+   - If active, clear it: `state_clear(mode="ultraqa", session_id)`
+4. Mark autopilot inactive (preserve state for resume) via `state_write(mode="autopilot", session_id, state={active: false, ...existing})`
+
+#### If Ralph Active (but not Autopilot)
+
+1. Read ralph state via `state_read(mode="ralph", session_id)` to check for linked ultrawork
+2. If `linked_ultrawork: true`:
+   - Read ultrawork state to verify `linked_to_ralph: true`
+   - If linked, clear ultrawork: `state_clear(mode="ultrawork", session_id)`
+3. Clear ralph: `state_clear(mode="ralph", session_id)`
+
+#### If Ultrawork Active (standalone, not linked)
+
+1. Read ultrawork state via `state_read(mode="ultrawork", session_id)`
+2. If `linked_to_ralph: true`, warn user to cancel ralph instead (which cascades)
+3. Otherwise clear: `state_clear(mode="ultrawork", session_id)`
+
+#### If UltraQA Active (standalone)
+
+Clear directly: `state_clear(mode="ultraqa", session_id)`
+
+#### No Active Modes
+
+Report: "No active OMC modes detected. Use --force to clear all state files anyway."
+
+## Implementation Notes
+
+The cancel skill runs as follows:
+1. Parse the `--force` / `--all` flags, tracking whether cleanup should span every session or stay scoped to the current session id.
+2. Use `state_list_active` to enumerate known session ids and `state_get_status` to learn the active mode (`autopilot`, `ralph`, `ultrawork`, etc.) for each session.
+3. When operating in default mode, call `state_clear` with that session_id to remove only the session’s files, then run mode-specific cleanup (autopilot → ralph → …) based on the state tool signals.
+4. In force mode, iterate every active session, call `state_clear` per session, then run a global `state_clear` without `session_id` to drop legacy files (`.omc/state/*.json`, compatibility artifacts) and report success. Swarm remains a shared SQLite/marker mode outside session scoping.
+5. Team artifacts (`~/.claude/teams/*/`, `~/.claude/tasks/*/`, `.omc/state/team-state.json`) remain best-effort cleanup items invoked during the legacy/global pass.
+6. **Always** clear skill-active state as the final step, regardless of which mode was active or whether `--force` was used:
+   ```
+   state_clear(mode="skill-active", session_id)
+   ```
+   This ensures the stop hook does not keep firing skill-protection reinforcements after cancel due to a stale `skill-active-state.json`. See issue #2118.
+
+State tools always honor the `session_id` argument, so even force mode still clears the session-scoped paths before deleting compatibility-only legacy state.
+
+Mode-specific subsections below describe what extra cleanup each handler performs after the state-wide operations finish.
+## Messages Reference
+
+| Mode | Success Message |
+|------|-----------------|
+| Autopilot | "Autopilot cancelled at phase: {phase}. Progress preserved for resume." |
+| Ralph | "Ralph cancelled. Persistent mode deactivated." |
+| Ultrawork | "Ultrawork cancelled. Parallel execution mode deactivated." |
+| UltraQA | "UltraQA cancelled. QA cycling workflow stopped." |
+| Swarm | "Swarm cancelled. Coordinated agents stopped." |
+| Ultrapilot | "Ultrapilot cancelled. Parallel autopilot workers stopped." |
+| Pipeline | "Pipeline cancelled. Sequential agent chain stopped." |
+| Team | "Team cancelled. Teammates shut down and cleaned up." |
+| Plan Consensus | "Plan Consensus cancelled. Planning session ended." |
+| Force | "All OMC modes cleared. You are free to start fresh." |
+| None | "No active OMC modes detected." |
+
+## What Gets Preserved
+
+| Mode | State Preserved | Resume Command |
+|------|-----------------|----------------|
+| Autopilot | Yes (phase, files, spec, plan, verdicts) | `/oh-my-claudecode:autopilot` |
+| Ralph | No | N/A |
+| Ultrawork | No | N/A |
+| UltraQA | No | N/A |
+| Swarm | No | N/A |
+| Ultrapilot | No | N/A |
+| Pipeline | No | N/A |
+| Plan Consensus | Yes (plan file path preserved) | N/A |
+
+## Notes
+
+- **Dependency-aware**: Autopilot cancellation cleans up Ralph and UltraQA
+- **Link-aware**: Ralph cancellation cleans up linked Ultrawork
+- **Safe**: Only clears linked Ultrawork, preserves standalone Ultrawork
+- **Local-only**: Clears state files in `.omc/state/` directory
+- **Resume-friendly**: Autopilot state is preserved for seamless resume
+- **Team-aware**: Detects native Claude Code teams and performs graceful shutdown
+
+## MCP Worker Cleanup
+
+When cancelling modes that may have spawned MCP workers (team bridge daemons), the cancel skill should also:
+
+1. **Check for active MCP workers**: Look for heartbeat files at `.omc/state/team-bridge/{team}/*.heartbeat.json`
+2. **Send shutdown signals**: Write shutdown signal files for each active worker
+3. **Kill tmux sessions**: Run `tmux kill-session -t omc-team-{team}-{worker}` for each worker
+4. **Clean up heartbeat files**: Remove all heartbeat files for the team
+5. **Clean up shadow registry**: Remove `.omc/state/team-mcp-workers.json`
+
+### Force Clear Addition
+
+When `--force` is used, also clean up:
+```bash
+rm -rf .omc/state/team-bridge/       # Heartbeat files
+rm -f .omc/state/team-mcp-workers.json  # Shadow registry
+# Kill all omc-team-* tmux sessions
+tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^omc-team-' | while read s; do tmux kill-session -t "$s" 2>/dev/null; done
+```
+</skill-instruction>
+
+<user-request>
+
+</user-request>
+</auto-slash-command>
+<skill-instruction>
+Base directory for this skill: C:\Users\pmacl\.claude\plugins\cache\omc\oh-my-claudecode\4.11.2\skills\cancel/
+File references (@path) in this skill are relative to this directory.
+
+# Cancel Skill
+
+Intelligent cancellation that detects and cancels the active OMC mode.
+
+**The cancel skill is the standard way to complete and exit any OMC mode.**
+When the stop hook detects work is complete, it instructs the LLM to invoke
+this skill for proper state cleanup. If cancel fails or is interrupted,
+retry with `--force` flag, or wait for the 2-hour staleness timeout as
+a last resort.
+
+## What It Does
+
+Automatically detects which mode is active and cancels it:
+- **Autopilot**: Stops workflow, preserves progress for resume
+- **Ralph**: Stops persistence loop, clears linked ultrawork if applicable
+- **Ultrawork**: Stops parallel execution (standalone or linked)
+- **UltraQA**: Stops QA cycling workflow
+- **Swarm**: Stops coordinated agent swarm, releases claimed tasks
+- **Ultrapilot**: Stops parallel autopilot workers
+- **Pipeline**: Stops sequential agent pipeline
+- **Team**: Sends shutdown_request to all teammates, waits for responses, calls TeamDelete, clears linked ralph if present
+- **Team+Ralph (linked)**: Cancels team first (graceful shutdown), then clears ralph state. Cancelling ralph when linked also cancels team first.
+
+## Usage
+
+```
+/oh-my-claudecode:cancel
+```
+
+Or say: "cancelomc", "stopomc"
+
+## Critical: Deferred Tool Handling
+
+The state management tools (`state_clear`, `state_read`, `state_write`, `state_list_active`,
+`state_get_status`) may be registered as **deferred tools** by Claude Code. Before calling
+any state tool, you MUST first load all of them via `ToolSearch`:
+
+```
+ToolSearch(query="select:mcp__plugin_oh-my-claudecode_t__state_clear,mcp__plugin_oh-my-claudecode_t__state_read,mcp__plugin_oh-my-claudecode_t__state_write,mcp__plugin_oh-my-claudecode_t__state_list_active,mcp__plugin_oh-my-claudecode_t__state_get_status")
+```
+
+If `state_clear` is unavailable or fails, use this **bash fallback** as an **emergency
+escape from the stop hook loop**. This is NOT a full replacement for the cancel flow —
+it only removes state files to unblock the session. Linked modes (e.g. ralph→ultrawork,
+autopilot→ralph/ultraqa) must be cleared separately by running the fallback once per mode.
+
+Replace `MODE` with the specific mode (e.g. `ralplan`, `ralph`, `ultrawork`, `ultraqa`).
+
+**WARNING:** Do NOT use this fallback for `autopilot` or `omc-teams`. Autopilot requires
+`state_write(active=false)` to preserve resume data. omc-teams requires tmux session
+cleanup that cannot be done via file deletion alone.
+
+```bash
+# Fallback: direct file removal when state_clear MCP tool is unavailable
+SESSION_ID="${CLAUDE_SESSION_ID:-${CLAUDECODE_SESSION_ID:-}}"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || { d="$PWD"; while [ "$d" != "/" ] && [ ! -d "$d/.omc" ]; do d="$(dirname "$d")"; done; echo "$d"; })"
+
+# Cross-platform SHA-256 (macOS: shasum, Linux: sha256sum)
+sha256portable() { printf '%s' "" | (sha256sum 2>/dev/null || shasum -a 256) | cut -c1-16; }
+
+# Resolve state directory (supports OMC_STATE_DIR centralized storage)
+if [ -n "${OMC_STATE_DIR:-}" ]; then
+  # Mirror getProjectIdentifier() from worktree-paths.ts
+  SOURCE="$(git remote get-url origin 2>/dev/null || echo "$REPO_ROOT")"
+  HASH="$(sha256portable "$SOURCE")"
+  DIR_NAME="$(basename "$REPO_ROOT" | sed 's/[^a-zA-Z0-9_-]/_/g')"
+  OMC_STATE="$OMC_STATE_DIR/${DIR_NAME}-${HASH}/state"
+  [ ! -d "$OMC_STATE" ] && { echo "ERROR: State dir not found at $OMC_STATE" >&2; exit 1; }
+elif [ "$REPO_ROOT" != "/" ] && [ -d "$REPO_ROOT/.omc" ]; then
+  OMC_STATE="$REPO_ROOT/.omc/state"
+else
+  echo "ERROR: Could not locate .omc state directory" >&2
+  exit 1
+fi
+MODE="ralplan"  # <-- replace with the target mode
+
+# Clear session-scoped state for the specific mode
+if [ -n "$SESSION_ID" ] && [ -d "$OMC_STATE/sessions/$SESSION_ID" ]; then
+  rm -f "$OMC_STATE/sessions/$SESSION_ID/${MODE}-state.json"
+  rm -f "$OMC_STATE/sessions/$SESSION_ID/${MODE}-stop-breaker.json"
+  rm -f "$OMC_STATE/sessions/$SESSION_ID/skill-active-state.json"
+  # Write cancel signal so stop hook detects cancellation in progress
+  NOW_ISO="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  EXPIRES_ISO="$(date -u -d "+30 seconds" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || python3 - <<'PY'\nfrom datetime import datetime, timedelta, timezone\nprint((datetime.now(timezone.utc) + timedelta(seconds=30)).strftime('%Y-%m-%dT%H:%M:%SZ'))\nPY\n)"
+  printf '{"active":true,"requested_at":"%s","expires_at":"%s","mode":"%s","source":"bash_fallback"}' \
+    "$NOW_ISO" "$EXPIRES_ISO" "$MODE" > "$OMC_STATE/sessions/$SESSION_ID/cancel-signal-state.json"
+fi
+
+# Clear legacy state only if no session ID (avoid clearing another session's state)
+if [ -z "$SESSION_ID" ]; then
+  rm -f "$OMC_STATE/${MODE}-state.json"
+fi
+```
+
+## Auto-Detection
+
+`/oh-my-claudecode:cancel` follows the session-aware state contract:
+- By default the command inspects the current session via `state_list_active` and `state_get_status`, navigating `.omc/state/sessions/{sessionId}/…` to discover which mode is active.
+- When a session id is provided or already known, that session-scoped path is authoritative. Legacy files in `.omc/state/*.json` are consulted only as a compatibility fallback if the session id is missing or empty.
+- Swarm is a shared SQLite/marker mode (`.omc/state/swarm.db` / `.omc/state/swarm-active.marker`) and is not session-scoped.
+- The default cleanup flow calls `state_clear` with the session id to remove only the matching session files; modes stay bound to their originating session.
+
+Active modes are still cancelled in dependency order:
+1. Autopilot (includes linked ralph/ultraqa/ cleanup)
+2. Ralph (cleans its linked ultrawork or )
+3. Ultrawork (standalone)
+4. UltraQA (standalone)
+5. Swarm (standalone)
+6. Ultrapilot (standalone)
+7. Pipeline (standalone)
+8. Team (Claude Code native)
+9. OMC Teams (tmux CLI workers)
+10. Plan Consensus (standalone)
+11. Self-Improve (standalone — clear state, clean orphaned worktrees, preserve iteration_state for resume, set status: "user_stopped" in .omc/self-improve/state/agent-settings.json)
+
+## Force Clear All
+
+Use `--force` or `--all` when you need to erase every session plus legacy artifacts, e.g., to reset the workspace entirely.
+
+```
+/oh-my-claudecode:cancel --force
+```
+
+```
+/oh-my-claudecode:cancel --all
+```
+
+Steps under the hood:
+1. `state_list_active` enumerates `.omc/state/sessions/{sessionId}/…` to find every known session.
+2. `state_clear` runs once per session to drop that session’s files.
+3. A global `state_clear` without `session_id` removes legacy files under `.omc/state/*.json`, `.omc/state/swarm*.db`, and compatibility artifacts (see list).
+4. Team artifacts (`~/.claude/teams/*/`, `~/.claude/tasks/*/`, `.omc/state/team-state.json`) are best-effort cleared as part of the legacy fallback.
+   - Cancel for native team does NOT affect omc-teams state, and vice versa.
+
+Every `state_clear` command honors the `session_id` argument, so even force mode still uses the session-aware paths first before deleting legacy files.
+
+Legacy compatibility list (removed only under `--force`/`--all`):
+- `.omc/state/autopilot-state.json`
+- `.omc/state/ralph-state.json`
+- `.omc/state/ralph-plan-state.json`
+- `.omc/state/ralph-verification.json`
+- `.omc/state/ultrawork-state.json`
+- `.omc/state/ultraqa-state.json`
+- `.omc/state/swarm.db`
+- `.omc/state/swarm.db-wal`
+- `.omc/state/swarm.db-shm`
+- `.omc/state/swarm-active.marker`
+- `.omc/state/swarm-tasks.db`
+- `.omc/state/ultrapilot-state.json`
+- `.omc/state/ultrapilot-ownership.json`
+- `.omc/state/pipeline-state.json`
+- `.omc/state/omc-teams-state.json`
+- `.omc/state/plan-consensus.json`
+- `.omc/state/ralplan-state.json`
+- `.omc/state/boulder.json`
+- `.omc/state/hud-state.json`
+- `.omc/state/subagent-tracking.json`
+- `.omc/state/subagent-tracker.lock`
+- `.omc/state/rate-limit-daemon.pid`
+- `.omc/state/rate-limit-daemon.log`
+- `.omc/state/checkpoints/` (directory)
+- `.omc/state/sessions/` (empty directory cleanup after clearing sessions)
+
+## Implementation Steps
+
+When you invoke this skill:
+
+### 1. Parse Arguments
+
+```bash
+# Check for --force or --all flags
+FORCE_MODE=false
+if [[ "$*" == *"--force"* ]] || [[ "$*" == *"--all"* ]]; then
+  FORCE_MODE=true
+fi
+```
+
+### 2. Detect Active Modes
+
+The skill now relies on the session-aware state contract rather than hard-coded file paths:
+1. Call `state_list_active` to enumerate `.omc/state/sessions/{sessionId}/…` and discover every active session.
+2. For each session id, call `state_get_status` to learn which mode is running (`autopilot`, `ralph`, `ultrawork`, etc.) and whether dependent modes exist.
+3. If a `session_id` was supplied to `/oh-my-claudecode:cancel`, skip legacy fallback entirely and operate solely within that session path; otherwise, consult legacy files in `.omc/state/*.json` only if the state tools report no active session. Swarm remains a shared SQLite/marker mode outside session scoping.
+4. Any cancellation logic in this doc mirrors the dependency order discovered via state tools (autopilot → ralph → …).
+
+### 3A. Force Mode (if --force or --all)
+
+Use force mode to clear every session plus legacy artifacts via `state_clear`. Direct file removal is reserved for legacy cleanup when the state tools report no active sessions.
+
+### 3B. Smart Cancellation (default)
+
+#### If Team Active (Claude Code native)
+
+Teams are detected by checking for config files in `${CLAUDE_CONFIG_DIR:-~/.claude}/teams/`:
+
+```bash
+# Check for active teams
+TEAM_CONFIGS=$(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/teams -name config.json -maxdepth 2 2>/dev/null)
+```
+
+**Two-pass cancellation protocol:**
+
+**Pass 1: Graceful Shutdown**
+```
+For each team found in ${CLAUDE_CONFIG_DIR:-~/.claude}/teams/:
+  1. Read config.json to get team_name and members list
+  2. For each non-lead member:
+     a. Send shutdown_request via SendMessage
+     b. Wait up to 15 seconds for shutdown_response
+     c. If response received: member terminates and is auto-removed
+     d. If timeout: mark member as unresponsive, continue to next
+  3. Log: "Graceful pass: X/Y members responded"
+```
+
+**Pass 2: Reconciliation**
+```
+After graceful pass:
+  1. Re-read config.json to check remaining members
+  2. If only lead remains (or config is empty): proceed to TeamDelete
+  3. If unresponsive members remain:
+     a. Wait 5 more seconds (they may still be processing)
+     b. Re-read config.json again
+     c. If still stuck: attempt TeamDelete anyway
+     d. If TeamDelete fails: report manual cleanup path
+```
+
+**TeamDelete + Cleanup:**
+```
+  1. Call TeamDelete() — removes ~/.claude/teams/{name}/ and ~/.claude/tasks/{name}/
+  2. Clear team state: state_clear(mode="team")
+  3. Check for linked ralph: state_read(mode="ralph") — if linked_team is true:
+     a. Clear ralph state: state_clear(mode="ralph")
+     b. Clear linked ultrawork if present: state_clear(mode="ultrawork")
+  4. Run orphan scan (see below)
+  5. Emit structured cancel report
+```
+
+**Orphan Detection (Post-Cleanup):**
+
+After TeamDelete, verify no agent processes remain:
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-orphans.mjs" --team-name "{team_name}"
+```
+
+The orphan scanner:
+1. Checks `ps aux` (Unix) or `tasklist` (Windows) for processes with `--team-name` matching the deleted team
+2. For each orphan whose team config no longer exists: sends SIGTERM, waits 5s, sends SIGKILL if still alive
+3. Reports cleanup results as JSON
+
+Use `--dry-run` to inspect without killing. The scanner is safe to run multiple times.
+
+**Structured Cancel Report:**
+```
+Team "{team_name}" cancelled:
+  - Members signaled: N
+  - Responses received: M
+  - Unresponsive: K (list names if any)
+  - TeamDelete: success/failed
+  - Manual cleanup needed: yes/no
+    Path: ~/.claude/teams/{name}/ and ~/.claude/tasks/{name}/
+```
+
+**Implementation note:** The cancel skill is executed by the LLM, not as a bash script. When you detect an active team:
+1. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/teams/*/config.json` to find active teams
+2. If multiple teams exist, cancel oldest first (by `createdAt`)
+3. For each non-lead member, call `SendMessage(type: "shutdown_request", recipient: member-name, content: "Cancelling")`
+4. Wait briefly for shutdown responses (15s per member timeout)
+5. Re-read config.json to check for remaining members (reconciliation pass)
+6. Call `TeamDelete()` to clean up
+7. Clear team state: `state_clear(mode="team", session_id)`
+8. Report structured summary to user
+
+#### If Autopilot Active
+
+Autopilot handles its own cleanup including linked ralph and ultraqa.
+
+1. Read autopilot state via `state_read(mode="autopilot", session_id)` to get current phase
+2. Check for linked ralph via `state_read(mode="ralph", session_id)`:
+   - If ralph is active and has `linked_ultrawork: true`, clear ultrawork first: `state_clear(mode="ultrawork", session_id)`
+   - Clear ralph: `state_clear(mode="ralph", session_id)`
+3. Check for linked ultraqa via `state_read(mode="ultraqa", session_id)`:
+   - If active, clear it: `state_clear(mode="ultraqa", session_id)`
+4. Mark autopilot inactive (preserve state for resume) via `state_write(mode="autopilot", session_id, state={active: false, ...existing})`
+
+#### If Ralph Active (but not Autopilot)
+
+1. Read ralph state via `state_read(mode="ralph", session_id)` to check for linked ultrawork
+2. If `linked_ultrawork: true`:
+   - Read ultrawork state to verify `linked_to_ralph: true`
+   - If linked, clear ultrawork: `state_clear(mode="ultrawork", session_id)`
+3. Clear ralph: `state_clear(mode="ralph", session_id)`
+
+#### If Ultrawork Active (standalone, not linked)
+
+1. Read ultrawork state via `state_read(mode="ultrawork", session_id)`
+2. If `linked_to_ralph: true`, warn user to cancel ralph instead (which cascades)
+3. Otherwise clear: `state_clear(mode="ultrawork", session_id)`
+
+#### If UltraQA Active (standalone)
+
+Clear directly: `state_clear(mode="ultraqa", session_id)`
+
+#### No Active Modes
+
+Report: "No active OMC modes detected. Use --force to clear all state files anyway."
+
+## Implementation Notes
+
+The cancel skill runs as follows:
+1. Parse the `--force` / `--all` flags, tracking whether cleanup should span every session or stay scoped to the current session id.
+2. Use `state_list_active` to enumerate known session ids and `state_get_status` to learn the active mode (`autopilot`, `ralph`, `ultrawork`, etc.) for each session.
+3. When operating in default mode, call `state_clear` with that session_id to remove only the session’s files, then run mode-specific cleanup (autopilot → ralph → …) based on the state tool signals.
+4. In force mode, iterate every active session, call `state_clear` per session, then run a global `state_clear` without `session_id` to drop legacy files (`.omc/state/*.json`, compatibility artifacts) and report success. Swarm remains a shared SQLite/marker mode outside session scoping.
+5. Team artifacts (`~/.claude/teams/*/`, `~/.claude/tasks/*/`, `.omc/state/team-state.json`) remain best-effort cleanup items invoked during the legacy/global pass.
+6. **Always** clear skill-active state as the final step, regardless of which mode was active or whether `--force` was used:
+   ```
+   state_clear(mode="skill-active", session_id)
+   ```
+   This ensures the stop hook does not keep firing skill-protection reinforcements after cancel due to a stale `skill-active-state.json`. See issue #2118.
+
+State tools always honor the `session_id` argument, so even force mode still clears the session-scoped paths before deleting compatibility-only legacy state.
+
+Mode-specific subsections below describe what extra cleanup each handler performs after the state-wide operations finish.
+## Messages Reference
+
+| Mode | Success Message |
+|------|-----------------|
+| Autopilot | "Autopilot cancelled at phase: {phase}. Progress preserved for resume." |
+| Ralph | "Ralph cancelled. Persistent mode deactivated." |
+| Ultrawork | "Ultrawork cancelled. Parallel execution mode deactivated." |
+| UltraQA | "UltraQA cancelled. QA cycling workflow stopped." |
+| Swarm | "Swarm cancelled. Coordinated agents stopped." |
+| Ultrapilot | "Ultrapilot cancelled. Parallel autopilot workers stopped." |
+| Pipeline | "Pipeline cancelled. Sequential agent chain stopped." |
+| Team | "Team cancelled. Teammates shut down and cleaned up." |
+| Plan Consensus | "Plan Consensus cancelled. Planning session ended." |
+| Force | "All OMC modes cleared. You are free to start fresh." |
+| None | "No active OMC modes detected." |
+
+## What Gets Preserved
+
+| Mode | State Preserved | Resume Command |
+|------|-----------------|----------------|
+| Autopilot | Yes (phase, files, spec, plan, verdicts) | `/oh-my-claudecode:autopilot` |
+| Ralph | No | N/A |
+| Ultrawork | No | N/A |
+| UltraQA | No | N/A |
+| Swarm | No | N/A |
+| Ultrapilot | No | N/A |
+| Pipeline | No | N/A |
+| Plan Consensus | Yes (plan file path preserved) | N/A |
+
+## Notes
+
+- **Dependency-aware**: Autopilot cancellation cleans up Ralph and UltraQA
+- **Link-aware**: Ralph cancellation cleans up linked Ultrawork
+- **Safe**: Only clears linked Ultrawork, preserves standalone Ultrawork
+- **Local-only**: Clears state files in `.omc/state/` directory
+- **Resume-friendly**: Autopilot state is preserved for seamless resume
+- **Team-aware**: Detects native Claude Code teams and performs graceful shutdown
+
+## MCP Worker Cleanup
+
+When cancelling modes that may have spawned MCP workers (team bridge daemons), the cancel skill should also:
+
+1. **Check for active MCP workers**: Look for heartbeat files at `.omc/state/team-bridge/{team}/*.heartbeat.json`
+2. **Send shutdown signals**: Write shutdown signal files for each active worker
+3. **Kill tmux sessions**: Run `tmux kill-session -t omc-team-{team}-{worker}` for each worker
+4. **Clean up heartbeat files**: Remove all heartbeat files for the team
+5. **Clean up shadow registry**: Remove `.omc/state/team-mcp-workers.json`
+
+### Force Clear Addition
+
+When `--force` is used, also clean up:
+```bash
+rm -rf .omc/state/team-bridge/       # Heartbeat files
+rm -f .omc/state/team-mcp-workers.json  # Shadow registry
+# Kill all omc-team-* tmux sessions
+tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^omc-team-' | while read s; do tmux kill-session -t "$s" 2>/dev/null; done
+```
+</skill-instruction>
+
+<user-request>
+
+</user-request>
