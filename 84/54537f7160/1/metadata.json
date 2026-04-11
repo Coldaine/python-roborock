@@ -1,0 +1,28 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "8454537f7160",
+  "session_id": "ses_28aa4a110ffeL2tZr56kfjnwXh",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-11T23:16:41.9946176Z",
+  "branch": "feat/local-map-editor",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "roborock/cli.py"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "e2c4084cfa47",
+  "checkpoint_transcript_start": 13,
+  "transcript_lines_at_start": 13,
+  "initial_attribution": {
+    "calculated_at": "2026-04-11T23:16:41.9929645Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 2691,
+    "human_modified": 1335,
+    "human_removed": 0,
+    "total_committed": 4026,
+    "total_lines_changed": 4027,
+    "agent_percentage": 0,
+    "metric_version": 2
+  }
+}
