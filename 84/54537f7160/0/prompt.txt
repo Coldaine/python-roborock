@@ -1,0 +1,69 @@
+can you tell me what all the notepads in .sysaphus are doing
+
+---
+
+I mean, tell me how they got created, because you're inferring right now. How do you know that that's true?
+
+---
+
+can you investigate and determine, if you wanted to make a workflow where you pulled down an dedited the maps locally woud that be possible
+
+---
+
+can't you programatically edit Via api?
+
+---
+
+my guess would be it would look something like: enumerate all the API calls, figure out exavctly how they work, figure out a way to replicate it exactly locally, and then figure out locally when an
+
+---
+
+my guess would be it would look something like: enumerate all the API calls, figure out exavctly how they work, figure out a way to replicate it exactly locally, and then figure out locally. how to translate edits into a series of calls that get us to where we want. Not in the sense that I'd have some visual editor, but I should be able to describe to you what I want, and then you make the programattic edits to the local version (with undo and revert capabilities) and then I'll approve it once you've gotten it to the right place, and then you make a series of calls to make what's reflected in our edits on the robot. Finally you'd call the tool to grab it down, and make sure it matches whatwe  did
+
+---
+
+should we make a feature branch on top of this one? do so and begin planning
+
+---
+
+and the branc hwas based on the previous branch, not main
+
+---
+
+critique pan
+
+---
+
+can you add these as critical considerations to the plan?
+
+---
+
+is that even where the plans are supposed to go?
+
+---
+
+correct
+
+---
+
+review the plan again
+
+---
+
+add to the implementation details
+
+---
+
+yes
+
+---
+
+can you double check, trace through the logic
+
+---
+
+can you walk me through the files, and walk me through how we think that the map function works? do we need to chagne the spec at all ?
+
+---
+
+go ahead and begin your rewrites
