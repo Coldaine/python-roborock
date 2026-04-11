@@ -1,0 +1,29 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "504b88d296f6",
+  "strategy": "manual-commit",
+  "branch": "feat/local-map-editor",
+  "checkpoints_count": 18,
+  "files_touched": [
+    "docs/plans/local-map-editor.md",
+    "docs/plans/qrevo-curv-2-flow-control-feedback-improvement-plan.md",
+    "docs/plans/qrevo-curv-2-flow-remaining-live-tests.md",
+    "roborock/cli.py",
+    "roborock/map/explore_parser.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/50/4b88d296f6/0/metadata.json",
+      "transcript": "/50/4b88d296f6/0/full.jsonl",
+      "content_hash": "/50/4b88d296f6/0/content_hash.txt",
+      "prompt": "/50/4b88d296f6/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 8705879,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 6660437,
+    "output_tokens": 25784,
+    "api_call_count": 86
+  }
+}
