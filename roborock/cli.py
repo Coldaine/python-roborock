@@ -1337,6 +1337,311 @@ async def q10_set_fan_level(ctx: click.Context, device_id: str, level: str) -> N
         click.echo(f"Error: {e}")
 
 
+# =============================================================================
+# Map Editor Commands
+# =============================================================================
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--room", required=True, help="Room name to split")
+@click.option("--direction", type=click.Choice(["vertical", "horizontal"]), default="vertical")
+@click.option("--ratio", type=float, default=0.5, help="Split position (0.0-1.0)")
+@click.pass_context
+@async_command
+async def split_room(ctx, device_id: str, room: str, direction: str, ratio: float):
+    """Split a room into two segments."""
+    from roborock.map import (
+        CoordinateTransformer,
+        SplitRoomEdit,
+        TranslationLayer,
+        VirtualState,
+        calculate_split_line,
+    )
+    from roborock.map.geometry import BoundingBox
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    # Get current map
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+
+    # Find room by name
+    target_room = None
+    for room_id, r in (map_data.rooms or {}).items():
+        room_name = getattr(r, "name", f"Room {room_id}")
+        if room_name.lower() == room.lower():
+            target_room = r
+            target_room_id = room_id
+            break
+
+    if target_room is None:
+        click.echo(f"Room '{room}' not found. Available rooms:")
+        for room_id, r in (map_data.rooms or {}).items():
+            room_name = getattr(r, "name", f"Room {room_id}")
+            click.echo(f"  - {room_name} (ID: {room_id})")
+        return
+
+    # Create coordinate transformer
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    if transformer is None:
+        click.echo("Failed to create coordinate transformer")
+        return
+
+    # Calculate split line
+    room_bbox = BoundingBox(
+        min_x=target_room.x0,
+        max_x=target_room.x1,
+        min_y=target_room.y0,
+        max_y=target_room.y1,
+    )
+    split_line = calculate_split_line(room_bbox, direction, ratio)
+
+    # Create virtual state and add edit
+    virtual_state = VirtualState(map_data, transformer)
+    edit = SplitRoomEdit(
+        segment_id=target_room_id,
+        x1=split_line.p1.x,
+        y1=split_line.p1.y,
+        x2=split_line.p2.x,
+        y2=split_line.p2.y,
+    )
+
+    success, error = virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created split edit for room '{room}':")
+    click.echo(f"  Line: ({edit.x1:.0f}, {edit.y1:.0f}) -> ({edit.x2:.0f}, {edit.y2:.0f})")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+    # Preview mode - don't execute yet
+    click.echo("\nUse --apply flag to execute (not yet implemented)")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--rooms", required=True, help="Comma-separated room names to merge")
+@click.pass_context
+@async_command
+async def merge_rooms(ctx, device_id: str, rooms: str):
+    """Merge multiple rooms into one."""
+    from roborock.map import (
+        CoordinateTransformer,
+        MergeRoomsEdit,
+        VirtualState,
+    )
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+    room_names = [r.strip() for r in rooms.split(",")]
+
+    # Find room IDs
+    segment_ids = []
+    for room_name in room_names:
+        found = False
+        for room_id, r in (map_data.rooms or {}).items():
+            name = getattr(r, "name", f"Room {room_id}")
+            if name.lower() == room_name.lower():
+                segment_ids.append(room_id)
+                found = True
+                break
+        if not found:
+            click.echo(f"Room '{room_name}' not found")
+            return
+
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    virtual_state = VirtualState(map_data, transformer)
+    edit = MergeRoomsEdit(segment_ids=segment_ids)
+
+    success, error = virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created merge edit for rooms: {room_names}")
+    click.echo(f"  Segment IDs: {segment_ids}")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--room", required=True, help="Room name")
+@click.option("--new-name", required=True, help="New room name")
+@click.pass_context
+@async_command
+async def rename_room(ctx, device_id: str, room: str, new_name: str):
+    """Rename a room."""
+    from roborock.map import (
+        CoordinateTransformer,
+        RenameRoomEdit,
+        VirtualState,
+    )
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+
+    # Find room
+    target_room_id = None
+    old_name = None
+    for room_id, r in (map_data.rooms or {}).items():
+        name = getattr(r, "name", f"Room {room_id}")
+        if name.lower() == room.lower():
+            target_room_id = room_id
+            old_name = name
+            break
+
+    if target_room_id is None:
+        click.echo(f"Room '{room}' not found")
+        return
+
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    virtual_state = VirtualState(map_data, transformer)
+    edit = RenameRoomEdit(
+        segment_id=target_room_id,
+        new_name=new_name,
+        old_name=old_name or "",
+    )
+
+    success, error = virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created rename edit: '{old_name}' -> '{new_name}'")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--x1", type=int, required=True, help="Wall start X (mm)")
+@click.option("--y1", type=int, required=True, help="Wall start Y (mm)")
+@click.option("--x2", type=int, required=True, help="Wall end X (mm)")
+@click.option("--y2", type=int, required=True, help="Wall end Y (mm)")
+@click.pass_context
+@async_command
+async def add_virtual_wall(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int):
+    """Add a virtual wall."""
+    from roborock.map import (
+        CoordinateTransformer,
+        VirtualState,
+        VirtualWallEdit,
+    )
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    virtual_state = VirtualState(map_data, transformer)
+
+    edit = VirtualWallEdit(x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2))
+
+    success, error = virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created virtual wall edit: ({x1}, {y1}) -> ({x2}, {y2})")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--x1", type=int, required=True, help="Zone min X (mm)")
+@click.option("--y1", type=int, required=True, help="Zone min Y (mm)")
+@click.option("--x2", type=int, required=True, help="Zone max X (mm)")
+@click.option("--y2", type=int, required=True, help="Zone max Y (mm)")
+@click.pass_context
+@async_command
+async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int):
+    """Add a no-go zone."""
+    from roborock.map import (
+        CoordinateTransformer,
+        NoGoZoneEdit,
+        VirtualState,
+    )
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    virtual_state = VirtualState(map_data, transformer)
+
+    edit = NoGoZoneEdit(x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2))
+
+    success, error = virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created no-go zone edit: ({x1}, {y1}) -> ({x2}, {y2})")
+
+
 def main():
     return cli()
 
