@@ -1,0 +1,29 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "504b88d296f6",
+  "session_id": "ses_28f0e7fecffeCvITJpD5CN3NTg",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-11T23:05:54.2193079Z",
+  "branch": "feat/local-map-editor",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/qrevo-curv-2-flow-command-check.md",
+    "roborock/cli.py",
+    "test_qrevo_commands.py",
+    "tests/test_cli.py"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "b27e8648d550",
+  "initial_attribution": {
+    "calculated_at": "2026-04-11T23:05:54.2180854Z",
+    "agent_lines": 663,
+    "agent_removed": 2,
+    "human_added": 558,
+    "human_modified": 1350,
+    "human_removed": 0,
+    "total_committed": 2571,
+    "total_lines_changed": 2573,
+    "agent_percentage": 25.845316750874463,
+    "metric_version": 2
+  }
+}

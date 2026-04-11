@@ -8,8 +8,11 @@
     "docs/plans/local-map-editor.md",
     "docs/plans/qrevo-curv-2-flow-control-feedback-improvement-plan.md",
     "docs/plans/qrevo-curv-2-flow-remaining-live-tests.md",
+    "docs/qrevo-curv-2-flow-command-check.md",
     "roborock/cli.py",
-    "roborock/map/explore_parser.py"
+    "roborock/map/explore_parser.py",
+    "test_qrevo_commands.py",
+    "tests/test_cli.py"
   ],
   "sessions": [
     {
@@ -35,6 +38,12 @@
       "transcript": "/50/4b88d296f6/3/full.jsonl",
       "content_hash": "/50/4b88d296f6/3/content_hash.txt",
       "prompt": "/50/4b88d296f6/3/prompt.txt"
+    },
+    {
+      "metadata": "/50/4b88d296f6/4/metadata.json",
+      "transcript": "/50/4b88d296f6/4/full.jsonl",
+      "content_hash": "/50/4b88d296f6/4/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
