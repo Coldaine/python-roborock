@@ -1081,7 +1081,9 @@ def update_docs(data_file: str, output_file: str):
     for model, data in product_data_from_yaml.items():
         # Reconstruct the DeviceFeatures object from the raw data in the YAML file
         product_nickname_str = data.get("product_nickname")
-        product_nickname = RoborockProductNickname[product_nickname_str] if product_nickname_str else None
+        product_nickname = None
+        if product_nickname_str and product_nickname_str in RoborockProductNickname.__members__:
+            product_nickname = RoborockProductNickname[product_nickname_str]
         device_features = DeviceFeatures.from_feature_flags(
             new_feature_info=data.get("new_feature_info"),
             new_feature_info_str=data.get("new_feature_info_str"),
