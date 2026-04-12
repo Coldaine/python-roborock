@@ -2,7 +2,7 @@
 
 ## Goal
 
-Complete the remaining live validation for `Qrevo Curv 2 Flow` (`roborock.vacuum.a245`, device id `7FjpPFODrdwoiHnJvL6eW2`), with special focus on:
+Complete the remaining live validation for `Qrevo Curv 2 Flow` (`roborock.vacuum.a245`, device id `<DEVICE_ID>`), with special focus on:
 
 1. the remaining untested map commands,
 2. job/cleaning-plan commands not yet explicitly validated,
@@ -11,19 +11,19 @@ Complete the remaining live validation for `Qrevo Curv 2 Flow` (`roborock.vacuum
 ## What is already verified
 
 - Authenticated device discovery works.
-- Device pinning works (`7FjpPFODrdwoiHnJvL6eW2`).
+- Device pinning works (`<DEVICE_ID>`).
 - These map/layout inspection commands work live:
-  - `uv run roborock home --device_id 7FjpPFODrdwoiHnJvL6eW2`
-  - `uv run roborock maps --device_id 7FjpPFODrdwoiHnJvL6eW2`
-  - `uv run roborock rooms --device_id 7FjpPFODrdwoiHnJvL6eW2`
-  - `uv run roborock map-data --device_id 7FjpPFODrdwoiHnJvL6eW2`
+  - `uv run roborock home --device_id <DEVICE_ID>`
+  - `uv run roborock maps --device_id <DEVICE_ID>`
+  - `uv run roborock rooms --device_id <DEVICE_ID>`
+  - `uv run roborock map-data --device_id <DEVICE_ID>`
 - Generic job-control commands work live:
-  - `uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd app_start`
-  - `uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd app_pause`
-  - `uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd app_stop`
-  - `uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd app_charge`
+  - `uv run roborock command --device_id <DEVICE_ID> --cmd app_start`
+  - `uv run roborock command --device_id <DEVICE_ID> --cmd app_pause`
+  - `uv run roborock command --device_id <DEVICE_ID> --cmd app_stop`
+  - `uv run roborock command --device_id <DEVICE_ID> --cmd app_charge`
 - Final safe-state validation works via:
-  - `uv run roborock status --device_id 7FjpPFODrdwoiHnJvL6eW2`
+  - `uv run roborock status --device_id <DEVICE_ID>`
 
 ## Constraints and operating rules
 
@@ -35,7 +35,7 @@ Complete the remaining live validation for `Qrevo Curv 2 Flow` (`roborock.vacuum
 
 ## Known live room map
 
-Current `rooms` output for device `7FjpPFODrdwoiHnJvL6eW2`:
+Current `rooms` output for device `<DEVICE_ID>`:
 
 - `1` → `Kitchen`
 - `3` → `Bedroom`
@@ -56,9 +56,9 @@ Important: there is **no room literally named `Office`** in the current mapping.
 Run and capture outputs for:
 
 ```powershell
-uv run roborock map-data --device_id 7FjpPFODrdwoiHnJvL6eW2 --include_path
-uv run roborock map-image --device_id 7FjpPFODrdwoiHnJvL6eW2 --output-file .sisyphus/evidence/live-qrevo-curv-2-flow/latest-map.png
-uv run roborock rooms --device_id 7FjpPFODrdwoiHnJvL6eW2
+uv run roborock map-data --device_id <DEVICE_ID> --include_path
+uv run roborock map-image --device_id <DEVICE_ID> --output-file .sisyphus/evidence/live-qrevo-curv-2-flow/latest-map.png
+uv run roborock rooms --device_id <DEVICE_ID>
 ```
 
 Acceptance:
@@ -72,7 +72,7 @@ Acceptance:
 The repo exposes a generic command path:
 
 ```powershell
-uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd <command_name> --params '<json>'
+uv run roborock command --device_id <DEVICE_ID> --cmd <command_name> --params '<json>'
 ```
 
 The lower-level docs mention these candidate commands relevant to room-targeted cleaning and mode control:
@@ -104,7 +104,7 @@ Target outcome:
 1. Re-run:
 
 ```powershell
-uv run roborock rooms --device_id 7FjpPFODrdwoiHnJvL6eW2
+uv run roborock rooms --device_id <DEVICE_ID>
 ```
 
 2. Determine which segment id is the office.
@@ -130,15 +130,15 @@ The agent should test these in increasing-risk order:
 1. Query current status/baseline:
 
 ```powershell
-uv run roborock status --device_id 7FjpPFODrdwoiHnJvL6eW2
-uv run roborock features --device_id 7FjpPFODrdwoiHnJvL6eW2
+uv run roborock status --device_id <DEVICE_ID>
+uv run roborock features --device_id <DEVICE_ID>
 ```
 
 2. Probe generic commands that appear to be mode/introspection related:
 
 ```powershell
-uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd get_room_mapping
-uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd get_customize_clean_mode
+uv run roborock command --device_id <DEVICE_ID> --cmd get_room_mapping
+uv run roborock command --device_id <DEVICE_ID> --cmd get_customize_clean_mode
 ```
 
 3. If the command path is accepted, probe candidate vacuum/mop mode setters with explicit evidence capture and immediate status verification.
@@ -146,9 +146,9 @@ uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd get_customize_c
 Candidate commands to evaluate:
 
 ```powershell
-uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd set_clean_motor_mode --params '<json>'
-uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd set_mop_mode --params '<json>'
-uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd set_customize_clean_mode --params '<json>'
+uv run roborock command --device_id <DEVICE_ID> --cmd set_clean_motor_mode --params '<json>'
+uv run roborock command --device_id <DEVICE_ID> --cmd set_mop_mode --params '<json>'
+uv run roborock command --device_id <DEVICE_ID> --cmd set_customize_clean_mode --params '<json>'
 ```
 
 The exact params are still model-specific and must be discovered/validated before use. Do not assume Q10 `onlysweep` params apply to this device, because we already proved the Q10 path is not the primary protocol here.
@@ -160,7 +160,7 @@ Once the office segment id is known and the vacuum-only mode mechanism is verifi
 Command template:
 
 ```powershell
-uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd app_segment_clean --params '<json>'
+uv run roborock command --device_id <DEVICE_ID> --cmd app_segment_clean --params '<json>'
 ```
 
 The agent must populate `<json>` only after discovering the accepted schema for this model. The command should encode:
@@ -176,7 +176,7 @@ For the chosen room-targeted command:
 1. Capture pre-status:
 
 ```powershell
-uv run roborock status --device_id 7FjpPFODrdwoiHnJvL6eW2
+uv run roborock status --device_id <DEVICE_ID>
 ```
 
 2. Execute the room-targeted cleaning command.
@@ -188,9 +188,9 @@ uv run roborock status --device_id 7FjpPFODrdwoiHnJvL6eW2
 5. End safely:
 
 ```powershell
-uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd app_stop
-uv run roborock command --device_id 7FjpPFODrdwoiHnJvL6eW2 --cmd app_charge
-uv run roborock status --device_id 7FjpPFODrdwoiHnJvL6eW2
+uv run roborock command --device_id <DEVICE_ID> --cmd app_stop
+uv run roborock command --device_id <DEVICE_ID> --cmd app_charge
+uv run roborock status --device_id <DEVICE_ID>
 ```
 
 ## What the next agent must not assume
@@ -208,3 +208,4 @@ The next agent should leave behind:
 3. one explicit transcript for the office-excluded vacuum-only room plan,
 4. a final safe-state transcript,
 5. doc updates to `docs/qrevo-curv-2-flow-command-check.md` promoting these remaining commands to worked / unsupported / broken.
+

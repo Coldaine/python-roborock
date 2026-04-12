@@ -3,7 +3,7 @@
 This module translates VirtualState changes into physical RoborockCommand RPC calls.
 It handles:
 - Protocol-specific payload formatting (V1 vs B01)
-- Two-stage sync (structural then additive)
+- Three-stage sync (topology, property, then additive edits)
 - Command batching and sequencing
 """
 
@@ -181,11 +181,12 @@ class B01Q7ProtocolTranslator(ProtocolTranslator):
 class TranslationLayer:
     """Translates VirtualState changes to device commands.
 
-    Implements the Two-Stage Sync pattern:
-    1. Structural Sync: Split, merge, rename operations
-    2. Additive Sync: Virtual walls, no-go zones
+    Implements the Three-Stage Sync pattern:
+    1. Topology Sync: Split and merge operations
+    2. Property Sync: Rename operations after room ID remapping
+    3. Additive Sync: Virtual walls and no-go zones
 
-    This ordering is critical because structural changes destroy old Room IDs
+    This ordering is critical because topology changes destroy old Room IDs
     and create new ones.
     """
 
@@ -235,7 +236,7 @@ class TranslationLayer:
             return results
 
         # Stage 1: Topology Sync (ID destroying: split/merge)
-        topology_edits = virtual_state.get_topology_edits()
+        topology_edits = [edit for edit in virtual_state.get_topology_edits() if edit.status == EditStatus.APPLIED]
         if topology_edits:
             _LOGGER.info(f"Stage 1: Executing {len(topology_edits)} topology edits")
             for edit in topology_edits:
@@ -254,7 +255,7 @@ class TranslationLayer:
             await self._repopulate_room_ids(virtual_state)
 
         # Stage 2: Property Sync (ID dependent: rename)
-        property_edits = virtual_state.get_property_edits()
+        property_edits = [edit for edit in virtual_state.get_property_edits() if edit.status == EditStatus.APPLIED]
         if property_edits and topology_success:
             _LOGGER.info(f"Stage 2: Executing {len(property_edits)} property edits")
             for edit in property_edits:
@@ -262,10 +263,10 @@ class TranslationLayer:
                 results.append(result)
 
         # Stage 3: Additive Sync (Absolute coordinates: walls/zones)
-        additive_edits = virtual_state.get_additive_edits()
+        additive_edits = [edit for edit in virtual_state.get_additive_edits() if edit.status == EditStatus.APPLIED]
         if additive_edits and topology_success:
             _LOGGER.info(f"Stage 3: Executing {len(additive_edits)} additive edits")
-            
+
             if self._protocol == "v1":
                 # V1 requires batching additive edits as they overwrite the entire state
                 batch_results = await self._execute_v1_additive_batch(virtual_state, additive_edits, map_flag)
@@ -467,10 +468,8 @@ class TranslationLayer:
             if params.get("map_flag") != map_flag:
                 params["map_flag"] = map_flag
         elif isinstance(params, list):
-            # For list params, prepend the map_flag
-            # Prevent double-wrapping if map_flag is already prepended
-            if not params or params[0] != map_flag:
-                params = [map_flag] + params
+            # Translator-produced list payloads are unbound, so always prepend.
+            params = [map_flag] + params
         # For other types (primitives, None, etc.), return as-is with map_flag wrapped in a list
         elif params is not None:
             params = [map_flag, params]
@@ -490,7 +489,7 @@ class TranslationLayer:
         """
         try:
             if self._protocol == "v1":
-                await self._command.send(RoborockCommand.MANUAL_BAK_MAP, [map_flag] if map_flag else [])
+                await self._command.send(RoborockCommand.MANUAL_BAK_MAP, [map_flag] if map_flag is not None else [])
             else:
                 # B01 may not support explicit backup
                 _LOGGER.warning("B01 protocol backup not supported")
@@ -511,7 +510,7 @@ class TranslationLayer:
         """
         try:
             if self._protocol == "v1":
-                await self._command.send(RoborockCommand.RECOVER_MAP, [map_flag] if map_flag else [])
+                await self._command.send(RoborockCommand.RECOVER_MAP, [map_flag] if map_flag is not None else [])
             else:
                 _LOGGER.warning("B01 protocol restore not supported")
                 return False
@@ -523,7 +522,7 @@ class TranslationLayer:
     async def _repopulate_room_ids(self, virtual_state: VirtualState) -> None:
         """Fetch fresh map and remap old Room IDs to new ones.
 
-        This is used between Stage 1 and Stage 2 of the Two-Stage Sync
+        This is used between Stage 1 and Stage 2 of the Three-Stage Sync
         to ensure subsequent edits (like renames or zones) use the correct
         segment IDs after a split or merge operation.
         """

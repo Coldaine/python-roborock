@@ -62,7 +62,7 @@ class DeviceFeaturesTrait(DeviceFeatures, common.V1TraitMixin):
         await self._device_cache.set(cache_data)
 
     def _parse_response(self, response: common.V1ResponseData) -> DeviceFeatures:
-        """Parse the response from the device into a MapContentTrait instance."""
+        """Parse the response from the device into a DeviceFeatures instance."""
         if not isinstance(response, list):
             raise ValueError(f"Unexpected AppInitStatus response format: {type(response)}")
         app_status = AppInitStatus.from_dict(response[0])

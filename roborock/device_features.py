@@ -583,9 +583,9 @@ class DeviceFeatures(RoborockBase):
         product_nickname: RoborockProductNickname | None,
     ) -> DeviceFeatures:
         """Creates a DeviceFeatures instance from raw feature flags.
-        :param new_feature_info: A int from get_init_status (sometimes can be found in homedata, but it is not always)
-        :param new_feature_info_str: A hex string from get_init_status or home_data.
-        :param feature_info: A list of ints from get_init_status
+        :param new_feature_info: An int from get_init_status; None is treated as 0.
+        :param new_feature_info_str: A hex string from get_init_status or home_data; None is treated as "".
+        :param feature_info: A list of ints from get_init_status; None is treated as [].
         :param product_nickname: The product nickname of the device."""
 
         # Default None to empty/0 values
@@ -646,8 +646,7 @@ class DeviceFeatures(RoborockBase):
             elif (feature_id := f.metadata.get("robot_features")) is not None:
                 kwargs[f.name] = feature_id in feature_info
             elif (whitelist := f.metadata.get("model_whitelist")) is not None:
-                # If product_nickname is None, assume it is not in the whitelist
-                kwargs[f.name] = product_nickname in whitelist or product_nickname is None
+                kwargs[f.name] = product_nickname is not None and product_nickname in whitelist
             elif (blacklist := f.metadata.get("model_blacklist")) is not None:
                 # If product_nickname is None, assume it is not in the blacklist.
                 if product_nickname is None:

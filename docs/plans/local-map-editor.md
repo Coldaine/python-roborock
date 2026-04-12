@@ -31,8 +31,8 @@ When the user requests an edit (e.g., "Add a virtual wall across the hallway"):
 3. **Interactive Preview**: The CLI generates a temporary PNG (e.g., `temp_preview.png`) with the proposed edits drawn in red. The user is prompted to check this file before proceeding.
 4. **Approval/Undo**: The user reviews the PNG. If incorrect, we pop the Edit Object off the stack (Undo). If approved, we proceed to Phase 3.
 
-### Phase 3: Execution & Verification (Two-Stage Sync)
-Because structural edits (like `SPLIT_ROOM`) destroy old Room IDs and create new ones, applying additive edits (like `SET_VIRTUAL_WALL`) immediately afterward could target an invalid Room ID or corrupt the map. Therefore, the Translation Layer must execute a **Two-Stage Sync**:
+### Phase 3: Execution & Verification (Three-Stage Sync)
+Because topology edits (like `SPLIT_ROOM`) destroy old Room IDs and create new ones, property edits (like `NAME_SEGMENT`) depend on the remapped IDs, and additive edits (like `SET_VIRTUAL_WALL`) should only run after topology changes settle. Therefore, the Translation Layer must execute a **Three-Stage Sync**:
 
 1. **Stage 1 (Structural Sync)**: Translate and send all room split, merge, and rename commands.
 2. **Intermediate Repopulate**: Pause and poll `GET_MAP_V1` until the firmware reflects the structural changes. Update the Local State Machine with the new, valid Room IDs.

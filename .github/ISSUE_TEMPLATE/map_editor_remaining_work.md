@@ -15,7 +15,7 @@ This issue tracks remaining work for the Local Map Editor feature.
 - [ ] **Map Version Check Before Sync** (P1)
   - Call `MapVerifier.check_map_version()` before `execute_edits()` to prevent stale edits
   - File: `roborock/cli.py`
-  - Related: `roborock/map/verifier.py:386-433`
+  - Related: `MapVerifier.check_map_version()` in `roborock/map/verifier.py`
 
 - [ ] **Map Boundary Validation** (P2)
   - Prevent walls/zones outside map dimensions

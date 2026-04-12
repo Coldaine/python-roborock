@@ -2,7 +2,7 @@
 
 Date: 2026-04-10  
 Device: Qrevo Curv 2 Flow (`roborock.vacuum.a245`)  
-Device ID: `7FjpPFODrdwoiHnJvL6eW2`
+Device ID: `<DEVICE_ID>`
 
 ## Goal
 
@@ -129,3 +129,4 @@ Track where the API is thin:
 - [ ] Thin-API limitations are explained plainly
 - [ ] Feedback gaps are listed with concrete next steps
 - [ ] The remaining live tests can be traced back to a single plan
+

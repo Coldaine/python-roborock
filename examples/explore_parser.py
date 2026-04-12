@@ -85,5 +85,5 @@ async def explore_map_data(duid: str):
         await conn_manager.close()
 
 if __name__ == "__main__":
-    TARGET_DUID = "7FjpPFODrdwoiHnJvL6eW2"
+    TARGET_DUID = "<DEVICE_ID>"
     asyncio.run(explore_map_data(TARGET_DUID))
