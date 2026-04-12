@@ -1,9 +1,11 @@
 import json
+from dataclasses import dataclass
 
 from click.testing import CliRunner
 
 from roborock.cli import RoborockContext, cli
 from roborock.data import UserData
+from roborock.data.b01_q10.b01_q10_code_mappings import YXCleanType
 from tests.mock_data import USER_DATA
 
 
@@ -44,3 +46,27 @@ def test_login_code_flow_uses_v4(monkeypatch, tmp_path) -> None:
 
     saved_login = json.loads((tmp_path / ".roborock").read_text())
     assert saved_login["email"] == "test_user@gmail.com"
+
+
+def test_q10_clean_mode_accepts_documented_aliases(monkeypatch) -> None:
+    captured: list[YXCleanType] = []
+
+    @dataclass
+    class FakeTrait:
+        async def set_clean_mode(self, mode: YXCleanType) -> None:
+            captured.append(mode)
+
+    async def fake_q10_trait(context, device_id: str) -> FakeTrait:
+        return FakeTrait()
+
+    monkeypatch.setattr("roborock.cli._q10_vacuum_trait", fake_q10_trait)
+
+    result = CliRunner().invoke(
+        cli,
+        ["session", "q10-set-clean-mode", "--device_id", "device-1", "--mode", "vac_and_mop"],
+        obj=object(),
+    )
+
+    assert result.exit_code == 0
+    assert "Clean mode set to vac_and_mop" in result.output
+    assert captured == [YXCleanType.BOTH_WORK]

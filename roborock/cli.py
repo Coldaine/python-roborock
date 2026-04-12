@@ -241,10 +241,16 @@ class RoborockContext(Cache):
             return
             
         state = self._virtual_states[device_id]
+        state_file = self._get_virtual_state_path(device_id)
         if not state.has_pending_edits:
+            if state_file.exists():
+                try:
+                    state_file.unlink()
+                    _LOGGER.debug(f"Removed stale virtual state for {device_id}")
+                except FileNotFoundError:
+                    pass
             return
             
-        state_file = self._get_virtual_state_path(device_id)
         await state.save(state_file)
         _LOGGER.debug(f"Saved virtual state for {device_id}")
 
@@ -256,13 +262,19 @@ class RoborockContext(Cache):
         self._virtual_states_dir.mkdir(parents=True, exist_ok=True)
         
         for device_id, state in self._virtual_states.items():
+            state_file = self._get_virtual_state_path(device_id)
             if state.has_pending_edits:
                 try:
-                    state_file = self._get_virtual_state_path(device_id)
                     await state.save(state_file)
                     _LOGGER.info(f"Saved virtual state for {device_id} with {len(state)} edits")
                 except Exception as e:
                     _LOGGER.error(f"Failed to save virtual state for {device_id}: {e}")
+            elif state_file.exists():
+                try:
+                    state_file.unlink()
+                    _LOGGER.info(f"Removed stale virtual state for {device_id}")
+                except Exception as e:
+                    _LOGGER.error(f"Failed to remove stale virtual state for {device_id}: {e}")
 
     def load_virtual_states(self, available_devices: list[str] | None = None) -> dict[str, dict]:
         """Load and validate virtual states from disk on startup.
@@ -1271,7 +1283,7 @@ def update_docs(data_file: str, output_file: str):
         product_features_map[model] = current_product_data
 
     # --- Helper function to write the markdown table ---
-    def write_markdown_table(product_features: dict[str, dict[str, any]], all_features: set[str]):
+    def write_markdown_table(product_features: dict[str, dict[str, Any]], all_features: set[str]):
         """Writes the data into a markdown table (products as columns)."""
         sorted_products = sorted(product_features.keys())
         special_rows = [
@@ -1449,7 +1461,12 @@ async def q10_empty_dustbin(ctx: click.Context, device_id: str) -> None:
 
 @session.command()
 @click.option("--device_id", required=True, help="Device ID")
-@click.option("--mode", required=True, type=click.Choice(["bothwork", "onlysweep", "onlymop"]), help="Clean mode")
+@click.option(
+    "--mode",
+    required=True,
+    type=click.Choice(["bothwork", "vac_and_mop", "onlysweep", "vacuum", "onlymop", "mop"], case_sensitive=False),
+    help="Clean mode",
+)
 @click.pass_context
 @async_command
 async def q10_set_clean_mode(ctx: click.Context, device_id: str, mode: str) -> None:
@@ -1457,7 +1474,15 @@ async def q10_set_clean_mode(ctx: click.Context, device_id: str, mode: str) -> N
     context: RoborockContext = ctx.obj
     try:
         trait = await _q10_vacuum_trait(context, device_id)
-        clean_mode = YXCleanType.from_value(mode)
+        mode_aliases = {
+            "vac_and_mop": YXCleanType.BOTH_WORK,
+            "bothwork": YXCleanType.BOTH_WORK,
+            "vacuum": YXCleanType.ONLY_SWEEP,
+            "onlysweep": YXCleanType.ONLY_SWEEP,
+            "mop": YXCleanType.ONLY_MOP,
+            "onlymop": YXCleanType.ONLY_MOP,
+        }
+        clean_mode = mode_aliases[mode.lower()]
         await trait.set_clean_mode(clean_mode)
         click.echo(f"Clean mode set to {mode}")
     except RoborockUnsupportedFeature:
@@ -1598,11 +1623,11 @@ async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
             return False
 
         # Check if any edits failed
-        failed_results = [r for r in results if not r.success]
+        failed_results = [res for res in results if not res.success]
         if failed_results:
             click.echo(f"ERROR: {len(failed_results)} edit(s) failed:")
-            for r in failed_results:
-                click.echo(f"  - {r.edit.edit_type.name}: {r.error}")
+            for failed_res in failed_results:
+                click.echo(f"  - {failed_res.edit.edit_type.name}: {failed_res.error}")
 
             click.echo("Rolling back changes...")
             await translation.restore_map_backup(map_flag)
@@ -1622,7 +1647,7 @@ async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
         verifier = MapVerifier(map_content_trait=map_content_trait)
         verification_results = await verifier.verify_edits(virtual_state)
 
-        all_verified = all(r.verified for r in verification_results)
+        all_verified = all(v_res.verified for v_res in verification_results)
         if all_verified:
             click.echo("  SUCCESS: All edits verified on device")
             # Mark edits as synced in virtual state
@@ -1630,10 +1655,10 @@ async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
                 edit.status = EditStatus.SYNCED
             return True
         else:
-            failed_verifications = [r for r in verification_results if not r.verified]
+            failed_verifications = [v_res for v_res in verification_results if not v_res.verified]
             click.echo(f"  WARNING: {len(failed_verifications)} edit(s) could not be verified")
-            for r in failed_verifications:
-                click.echo(f"    - {r.edit_type}: {r.mismatch_reason}")
+            for failed_v_res in failed_verifications:
+                click.echo(f"    - {failed_v_res.edit_type}: {failed_v_res.mismatch_reason}")
             return False
     else:
         click.echo("  WARNING: Map content trait unavailable, skipping verification")
@@ -2080,7 +2105,7 @@ async def map_edit_status(ctx, device_id: str):
 async def map_edit_sync(ctx, device_id: str):
     """Sync all pending edits to the device."""
     context: RoborockContext = ctx.obj
-    virtual_state = context.get_virtual_state(device_id)
+    virtual_state = await context.get_virtual_state(device_id)
 
     if not virtual_state or not virtual_state.has_pending_edits:
         click.echo("No pending edits to sync")

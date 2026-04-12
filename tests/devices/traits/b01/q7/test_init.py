@@ -5,6 +5,7 @@ import pytest
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
+from roborock.data import HomeDataDevice, HomeDataProduct
 from roborock.data.b01_q7 import (
     CleanTaskTypeMapping,
     CleanTypeMapping,
@@ -14,11 +15,12 @@ from roborock.data.b01_q7 import (
     WorkStatusMapping,
 )
 from roborock.devices.rpc.b01_q7_channel import send_decoded_command
-from roborock.devices.traits.b01.q7 import Q7PropertiesApi
+from roborock.devices.traits.b01.q7 import Q7PropertiesApi, create
 from roborock.exceptions import RoborockException
 from roborock.protocols.b01_q7_protocol import B01_VERSION, Q7RequestMessage
 from roborock.roborock_message import RoborockB01Props, RoborockMessageProtocol
 from tests.fixtures.channel_fixtures import FakeChannel
+from tests import mock_data
 
 from . import B01MessageBuilder
 
@@ -257,3 +259,23 @@ async def test_q7_api_find_me(q7_api: Q7PropertiesApi, fake_channel: FakeChannel
     payload_data = json.loads(unpad(message.payload, AES.block_size))
     assert payload_data["dps"]["10000"]["method"] == "service.find_device"
     assert payload_data["dps"]["10000"]["params"] == {}
+
+
+def test_q7_api_exposes_map_attributes(q7_api: Q7PropertiesApi) -> None:
+    """The Q7 API should expose map attributes on the public surface."""
+    assert hasattr(q7_api, "map")
+    assert hasattr(q7_api, "map_content")
+    assert q7_api.map is not None
+    assert q7_api.map_content is not None
+
+
+def test_q7_api_wires_map_traits_with_device_metadata() -> None:
+    """The Q7 constructor helper should create map traits with metadata."""
+    channel = FakeChannel()
+    device = HomeDataDevice.from_dict(mock_data.Q7_DEVICE_DATA)
+    product = HomeDataProduct.from_dict(mock_data.SC01_PRODUCT_DATA)
+
+    q7_api = create(product, device, channel)
+
+    assert q7_api.map is not None
+    assert q7_api.map_content is not None

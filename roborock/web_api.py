@@ -544,10 +544,10 @@ class RoborockApiClient:
             rriot.r.a,
             self.session,
             {
-                "Authorization": _get_hawk_authentication(rriot, "/v2/user/homes/" + str(home_id)),
+                "Authorization": _get_hawk_authentication(rriot, f"/user/homes/{home_id}/rooms"),
             },
         )
-        room_response = await room_request.request("get", f"/user/homes/{str(home_id)}/rooms" + str(home_id))
+        room_response = await room_request.request("get", f"/user/homes/{home_id}/rooms")
         if not room_response.get("success"):
             raise RoborockException(room_response)
         rooms = room_response.get("result")

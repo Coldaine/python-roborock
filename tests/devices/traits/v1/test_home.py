@@ -227,7 +227,7 @@ async def test_discover_home_empty_cache(
     assert map_123_data.rooms[0].segment_id == 18
     assert map_123_data.rooms[0].name == "Example room 3"
     assert map_123_data.rooms[1].segment_id == 19
-    assert map_123_data.rooms[1].name == "Unknown"  # Not in mock home data
+    assert map_123_data.rooms[1].name == "Room 19"  # Not in mock home data
 
     map_123_content = home_trait.home_map_content[123]
     assert map_123_content is not None
