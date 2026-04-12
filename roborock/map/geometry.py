@@ -265,6 +265,40 @@ class CoordinateTransformer:
         )
 
 
+def calculate_room_overlap(box1: BoundingBox, box2: BoundingBox) -> float:
+    """Calculate the overlap ratio between two bounding boxes.
+
+    Uses Intersection over Union (IoU) approach.
+
+    Args:
+        box1: First bounding box.
+        box2: Second bounding box.
+
+    Returns:
+        Ratio of intersection area to union area (0-1).
+    """
+    # Calculate intersection
+    inter_min_x = max(box1.min_x, box2.min_x)
+    inter_max_x = min(box1.max_x, box2.max_x)
+    inter_min_y = max(box1.min_y, box2.min_y)
+    inter_max_y = min(box1.max_y, box2.max_y)
+
+    if inter_max_x < inter_min_x or inter_max_y < inter_min_y:
+        return 0.0
+
+    inter_area = (inter_max_x - inter_min_x) * (inter_max_y - inter_min_y)
+
+    # Calculate union
+    area1 = box1.width * box1.height
+    area2 = box2.width * box2.height
+    union_area = area1 + area2 - inter_area
+
+    if union_area <= 0:
+        return 0.0
+
+    return inter_area / union_area
+
+
 def calculate_split_line(
     bounding_box: BoundingBox,
     direction: str = "vertical",

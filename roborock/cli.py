@@ -179,6 +179,20 @@ class RoborockContext(Cache):
         self._session_loop: asyncio.AbstractEventLoop | None = None
         self._session_thread: threading.Thread | None = None
         self._device_manager: DeviceConnectionManager | None = None
+        self._virtual_states: dict[str, Any] = {}
+
+    def get_virtual_state(self, device_id: str, map_data: Any = None) -> Any:
+        """Get or create a VirtualState for a device."""
+        from roborock.map import CoordinateTransformer, VirtualState
+        
+        if device_id not in self._virtual_states:
+            if map_data is None:
+                return None
+            
+            transformer = CoordinateTransformer.from_map_data(map_data)
+            self._virtual_states[device_id] = VirtualState(map_data, transformer)
+            
+        return self._virtual_states[device_id]
 
     def reload(self):
         if self.roborock_file.is_file():
@@ -1404,8 +1418,14 @@ async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
         click.echo("ERROR: Device does not have command trait")
         return False
     
+    map_content_trait = getattr(device.v1_properties, 'map_content', None)
+    
     # Create translation layer with proper arguments
-    translation = TranslationLayer(command_trait=command_trait, protocol="v1")
+    translation = TranslationLayer(
+        command_trait=command_trait,
+        map_content_trait=map_content_trait,
+        protocol="v1",
+    )
     
     # Execute edits
     results = await translation.execute_edits(virtual_state, map_flag)
@@ -1521,7 +1541,11 @@ async def split_room(ctx, device_id: str, room: str, direction: str, ratio: floa
     split_line = calculate_split_line(room_bbox, direction, ratio)
 
     # Create virtual state and add edit
-    virtual_state = VirtualState(map_data, transformer)
+    virtual_state = context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
+    
     edit = SplitRoomEdit(
         segment_id=target_room_id,
         x1=split_line.p1.x,
@@ -1600,7 +1624,11 @@ async def merge_rooms(ctx, device_id: str, rooms: str, apply: bool, preview: boo
             return
 
     transformer = CoordinateTransformer.from_map_data(map_data)
-    virtual_state = VirtualState(map_data, transformer)
+    virtual_state = context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
+        
     edit = MergeRoomsEdit(segment_ids=segment_ids)
 
     success, error = virtual_state.add_edit(edit)
@@ -1673,7 +1701,11 @@ async def rename_room(ctx, device_id: str, room: str, new_name: str, apply: bool
         return
 
     transformer = CoordinateTransformer.from_map_data(map_data)
-    virtual_state = VirtualState(map_data, transformer)
+    virtual_state = context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
+        
     edit = RenameRoomEdit(
         segment_id=target_room_id,
         new_name=new_name,
@@ -1736,7 +1768,10 @@ async def add_virtual_wall(ctx, device_id: str, x1: int, y1: int, x2: int, y2: i
 
     map_data = map_trait.map_data
     transformer = CoordinateTransformer.from_map_data(map_data)
-    virtual_state = VirtualState(map_data, transformer)
+    virtual_state = context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
 
     edit = VirtualWallEdit(x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2))
 
@@ -1796,7 +1831,10 @@ async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int
 
     map_data = map_trait.map_data
     transformer = CoordinateTransformer.from_map_data(map_data)
-    virtual_state = VirtualState(map_data, transformer)
+    virtual_state = context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
 
     edit = NoGoZoneEdit(x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2))
 
@@ -1819,6 +1857,101 @@ async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int
         await _execute_edit(device, virtual_state, map_data.map_flag or 0)
     else:
         click.echo("\nUse --apply flag to execute the edit")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_status(ctx, device_id: str):
+    """Show pending edits in the virtual state."""
+    context: RoborockContext = ctx.obj
+    virtual_state = context.get_virtual_state(device_id)
+
+    if not virtual_state or not virtual_state.has_pending_edits:
+        click.echo("No pending edits")
+        return
+
+    click.echo(f"Pending edits for device {device_id}:")
+    for i, edit in enumerate(virtual_state.pending_edits):
+        click.echo(f"  {i+1}. {edit.edit_type.name} (Status: {edit.status.name})")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_sync(ctx, device_id: str):
+    """Sync all pending edits to the device."""
+    context: RoborockContext = ctx.obj
+    virtual_state = context.get_virtual_state(device_id)
+
+    if not virtual_state or not virtual_state.has_pending_edits:
+        click.echo("No pending edits to sync")
+        return
+
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    # We need the map_flag from the base map
+    map_flag = virtual_state._base_map.map_flag if virtual_state._base_map else 0
+
+    success = await _execute_edit(device, virtual_state, map_flag)
+    if success:
+        click.echo("Sync successful. Clearing pending edits.")
+        virtual_state.clear()
+    else:
+        click.echo("Sync failed or partially completed.")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_undo(ctx, device_id: str):
+    """Undo the last pending edit."""
+    context: RoborockContext = ctx.obj
+    virtual_state = context.get_virtual_state(device_id)
+
+    if not virtual_state or not virtual_state.can_undo:
+        click.echo("Nothing to undo")
+        return
+
+    edit = virtual_state.undo()
+    click.echo(f"Undone: {edit.edit_type.name}")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_redo(ctx, device_id: str):
+    """Redo the last undone edit."""
+    context: RoborockContext = ctx.obj
+    virtual_state = context.get_virtual_state(device_id)
+
+    if not virtual_state or not virtual_state.can_redo:
+        click.echo("Nothing to redo")
+        return
+
+    edit = virtual_state.redo()
+    click.echo(f"Redone: {edit.edit_type.name}")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_clear(ctx, device_id: str):
+    """Clear all pending edits."""
+    context: RoborockContext = ctx.obj
+    virtual_state = context.get_virtual_state(device_id)
+
+    if virtual_state:
+        virtual_state.clear()
+        click.echo("Cleared all pending edits")
+    else:
+        click.echo("No virtual state found for this device")
 
 
 def main():

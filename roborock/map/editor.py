@@ -509,21 +509,18 @@ class VirtualState:
         """
         return [e for e in self._edit_stack if e.edit_type == edit_type]
 
-    def get_structural_edits(self) -> list[EditObject]:
-        """Get structural edits (split, merge) that must be applied first.
+    def get_topology_edits(self) -> list[EditObject]:
+        """Get topology edits (split, merge) that destroy/create IDs."""
+        topology_types = {EditType.SPLIT_ROOM, EditType.MERGE_ROOMS}
+        return [e for e in self._edit_stack if e.edit_type in topology_types]
 
-        Returns:
-            List of structural edits.
-        """
-        structural_types = {EditType.SPLIT_ROOM, EditType.MERGE_ROOMS, EditType.RENAME_ROOM}
-        return [e for e in self._edit_stack if e.edit_type in structural_types]
+    def get_property_edits(self) -> list[EditObject]:
+        """Get property edits (rename) that depend on current IDs."""
+        property_types = {EditType.RENAME_ROOM, EditType.SET_ROOM_ORDER}
+        return [e for e in self._edit_stack if e.edit_type in property_types]
 
     def get_additive_edits(self) -> list[EditObject]:
-        """Get additive edits (walls, zones) that must be applied after structural.
-
-        Returns:
-            List of additive edits.
-        """
+        """Get additive edits (walls, zones) that use absolute coordinates."""
         additive_types = {
             EditType.VIRTUAL_WALL,
             EditType.NO_GO_ZONE,
@@ -531,6 +528,13 @@ class VirtualState:
             EditType.CARPET_AREA,
         }
         return [e for e in self._edit_stack if e.edit_type in additive_types]
+
+    def get_structural_edits(self) -> list[EditObject]:
+        """Deprecated: Use get_topology_edits or get_property_edits instead.
+        
+        Kept for backward compatibility.
+        """
+        return self.get_topology_edits() + self.get_property_edits()
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the virtual state to a dictionary."""

@@ -27,9 +27,13 @@ from .editor import (
     SplitRoomEdit,
     VirtualWallEdit,
 )
+from .geometry import BoundingBox, calculate_room_overlap
 
 if TYPE_CHECKING:
+    from vacuum_map_parser_base.map_data import MapData
+
     from roborock.devices.traits.v1.command import CommandTrait
+    from roborock.devices.traits.v1.map_content import MapContentTrait
 
     from .editor import VirtualState
 
@@ -91,21 +95,21 @@ class V1ProtocolTranslator(ProtocolTranslator):
         """
         # V1 uses the full map update approach
         wall_data = [int(edit.x1), int(edit.y1), int(edit.x2), int(edit.y2)]
-        return RoborockCommand.SET_VIRTUAL_WALL, [wall_data]
+        return "set_virtual_wall", [wall_data]
 
     def translate_no_go_zone(self, edit: NoGoZoneEdit) -> tuple[str, Any]:
         """Translate to SET_NO_GO_ZONES command."""
         zone_data = [int(edit.x1), int(edit.y1), int(edit.x2), int(edit.y2)]
-        return RoborockCommand.SET_NO_GO_ZONES, [zone_data]
+        return "set_no_go_zones", [zone_data]
 
     def translate_split_room(self, edit: SplitRoomEdit) -> tuple[str, Any]:
-        """Translate to SPLIT_ROOM command.
+        """Translate to SPLIT_SEGMENT command.
 
         V1 payload format:
         [segment_id, x1, y1, x2, y2]
         """
         params = [edit.segment_id, int(edit.x1), int(edit.y1), int(edit.x2), int(edit.y2)]
-        return RoborockCommand.SPLIT_ROOM, params
+        return RoborockCommand.SPLIT_SEGMENT, params
 
     def translate_merge_rooms(self, edit: MergeRoomsEdit) -> tuple[str, Any]:
         """Translate to MERGE_SEGMENT command.
@@ -184,14 +188,21 @@ class TranslationLayer:
     and create new ones.
     """
 
-    def __init__(self, command_trait: CommandTrait, protocol: str = "v1") -> None:
+    def __init__(
+        self,
+        command_trait: CommandTrait,
+        map_content_trait: MapContentTrait | None = None,
+        protocol: str = "v1",
+    ) -> None:
         """Initialize the translation layer.
 
         Args:
             command_trait: The device's command trait for sending commands.
+            map_content_trait: Trait for fetching map content (for ID remapping).
             protocol: Protocol version ("v1" or "b01_q7").
         """
         self._command = command_trait
+        self._map_content = map_content_trait
         self._protocol = protocol
 
         # Select appropriate translator
@@ -207,7 +218,7 @@ class TranslationLayer:
         virtual_state: VirtualState,
         map_flag: int | None = None,
     ) -> list[TranslationResult]:
-        """Execute all pending edits using Two-Stage Sync.
+        """Execute all pending edits using Three-Stage Sync.
 
         Args:
             virtual_state: The virtual state containing pending edits.
@@ -222,36 +233,40 @@ class TranslationLayer:
             _LOGGER.debug("No pending edits to execute")
             return results
 
-        # Stage 1: Structural Sync
-        structural_edits = virtual_state.get_structural_edits()
-        if structural_edits:
-            _LOGGER.info(f"Stage 1: Executing {len(structural_edits)} structural edits")
-            for edit in structural_edits:
+        # Stage 1: Topology Sync (ID destroying: split/merge)
+        topology_edits = virtual_state.get_topology_edits()
+        if topology_edits:
+            _LOGGER.info(f"Stage 1: Executing {len(topology_edits)} topology edits")
+            for edit in topology_edits:
                 result = await self._execute_edit(edit, map_flag)
                 results.append(result)
 
                 if not result.success:
-                    _LOGGER.error(f"Structural edit failed: {result.error}")
-                    # Stop on structural failure - remaining edits may be invalid
+                    _LOGGER.error(f"Topology edit failed: {result.error}")
+                    # Stop on topology failure - remaining edits may be invalid
                     break
 
         # Intermediate: Check if we need to repopulate room IDs
-        structural_success = all(r.success for r in results if r.edit in structural_edits)
-        if structural_success and structural_edits:
-            _LOGGER.info("Structural sync complete - room IDs may have changed")
-            # TODO: Implement room ID remapping if needed
+        topology_success = all(r.success for r in results if r.edit in topology_edits)
+        if topology_success and topology_edits and self._map_content:
+            _LOGGER.info("Topology sync complete - room IDs may have changed")
+            await self._repopulate_room_ids(virtual_state)
 
-        # Stage 2: Additive Sync
-        additive_edits = virtual_state.get_additive_edits()
-        if additive_edits and structural_success:
-            _LOGGER.info(f"Stage 2: Executing {len(additive_edits)} additive edits")
-            for edit in additive_edits:
+        # Stage 2: Property Sync (ID dependent: rename)
+        property_edits = virtual_state.get_property_edits()
+        if property_edits and topology_success:
+            _LOGGER.info(f"Stage 2: Executing {len(property_edits)} property edits")
+            for edit in property_edits:
                 result = await self._execute_edit(edit, map_flag)
                 results.append(result)
 
-                if not result.success:
-                    _LOGGER.error(f"Additive edit failed: {result.error}")
-                    # Continue on additive failure - they're independent
+        # Stage 3: Additive Sync (Absolute coordinates: walls/zones)
+        additive_edits = virtual_state.get_additive_edits()
+        if additive_edits and topology_success:
+            _LOGGER.info(f"Stage 3: Executing {len(additive_edits)} additive edits")
+            for edit in additive_edits:
+                result = await self._execute_edit(edit, map_flag)
+                results.append(result)
 
         return results
 
@@ -391,3 +406,99 @@ class TranslationLayer:
         except Exception as e:
             _LOGGER.error(f"Failed to restore map backup: {e}")
             return False
+
+    async def _repopulate_room_ids(self, virtual_state: VirtualState) -> None:
+        """Fetch fresh map and remap old Room IDs to new ones.
+
+        This is used between Stage 1 and Stage 2 of the Two-Stage Sync
+        to ensure subsequent edits (like renames or zones) use the correct
+        segment IDs after a split or merge operation.
+        """
+        if not self._map_content:
+            return
+
+        # 1. Save old room data (from virtual_state's base_map)
+        if virtual_state._base_map is None or not virtual_state._base_map.rooms:
+            _LOGGER.warning("Cannot remap rooms: No base map data available")
+            return
+        
+        old_rooms = virtual_state._base_map.rooms
+
+        # 2. Fetch fresh map data from device
+        try:
+            _LOGGER.info("Refreshing map for room ID remapping...")
+            await self._map_content.refresh()
+            new_map = self._map_content.map_data
+            if not new_map or not new_map.rooms:
+                _LOGGER.warning("Fresh map has no rooms, cannot remap")
+                return
+            
+            new_rooms = new_map.rooms
+        except Exception as e:
+            _LOGGER.error(f"Failed to refresh map for remapping: {e}")
+            return
+
+        # 3. Build spatial mapping (Old ID -> List of New IDs)
+        id_map: dict[int, list[int]] = {}
+        for old_id, old_room in old_rooms.items():
+            old_bbox = BoundingBox(old_room.x0, old_room.x1, old_room.y0, old_room.y1)
+            
+            for new_id, new_room in new_rooms.items():
+                new_bbox = BoundingBox(new_room.x0, new_room.x1, new_room.y0, new_room.y1)
+                
+                # Check overlap
+                overlap = calculate_room_overlap(old_bbox, new_bbox)
+                if overlap > 0.4:  # Catch splits (~0.5 overlap)
+                    if old_id not in id_map:
+                        id_map[old_id] = []
+                    id_map[old_id].append(new_id)
+
+        if not id_map:
+            _LOGGER.info("No room ID changes detected")
+            return
+
+        _LOGGER.debug(f"Room ID remapping table: {id_map}")
+
+        # 4. Update pending edits in VirtualState
+        # Property edits (rename) depend on current segment IDs.
+        # Additive edits (walls/zones) use absolute mm and don't need remapping.
+        pending_property = virtual_state.get_property_edits()
+        for edit in pending_property:
+            if edit.status != EditStatus.APPLIED:
+                continue
+
+            if isinstance(edit, RenameRoomEdit):
+                if edit.segment_id in id_map:
+                    # Pick the best match (first one for now)
+                    new_id = id_map[edit.segment_id][0]
+                    _LOGGER.info(f"Remapping RenameRoomEdit: {edit.segment_id} -> {new_id}")
+                    edit.segment_id = new_id
+
+        # Topology edits could also be chained, though less common in a single batch.
+        pending_topology = virtual_state.get_topology_edits()
+        for edit in pending_topology:
+            if edit.status != EditStatus.APPLIED:
+                continue
+            
+            if isinstance(edit, SplitRoomEdit):
+                if edit.segment_id in id_map:
+                    new_id = id_map[edit.segment_id][0]
+                    _LOGGER.info(f"Remapping SplitRoomEdit: {edit.segment_id} -> {new_id}")
+                    edit.segment_id = new_id
+            
+            elif isinstance(edit, MergeRoomsEdit):
+                new_segment_ids = []
+                for old_id in edit.segment_ids:
+                    if old_id in id_map:
+                        new_segment_ids.append(id_map[old_id][0])
+                    else:
+                        new_segment_ids.append(old_id)
+                
+                if new_segment_ids != edit.segment_ids:
+                    _LOGGER.info(f"Remapping MergeRoomsEdit: {edit.segment_ids} -> {new_segment_ids}")
+                    edit.segment_ids = new_segment_ids
+
+        # 5. Update the base map for the VirtualState so subsequent matches are correct
+        # This is important if we're doing multiple rounds or just to keep state consistent.
+        # virtual_state._base_map = new_map (Internal access needed or a public setter)
+        # For now, we've updated the pending edits which is the primary goal for execution.
