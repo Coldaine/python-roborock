@@ -1,0 +1,37 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "03e83e006558",
+  "session_id": "007b1f65-a920-499c-abfd-330975c55d16",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-12T03:24:07.9882504Z",
+  "branch": "feat/local-map-editor",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "roborock/cli.py"
+  ],
+  "agent": "Gemini CLI",
+  "model": "gemini-3-flash-preview",
+  "turn_id": "d9b321ac347a",
+  "token_usage": {
+    "input_tokens": 11859411,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9257580,
+    "output_tokens": 94122,
+    "api_call_count": 110
+  },
+  "session_metrics": {
+    "turn_count": 22
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-12T03:24:07.4325329Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 173,
+    "human_modified": 7,
+    "human_removed": 0,
+    "total_committed": 179,
+    "total_lines_changed": 180,
+    "agent_percentage": 0,
+    "metric_version": 2
+  }
+}
