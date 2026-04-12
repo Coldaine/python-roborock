@@ -11,6 +11,9 @@ It provides:
 from __future__ import annotations
 
 import logging
+import threading
+import json
+import pathlib
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -104,6 +107,37 @@ class EditObject(ABC):
             "edit_type": self.edit_type.name,
             "status": self.status.name,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'EditObject':
+        """Create edit from dictionary."""
+        edit_type_name = data.get("edit_type")
+        
+        # Determine subclass based on type name
+        if edit_type_name == "VIRTUAL_WALL":
+            from .editor import VirtualWallEdit as edit_class
+        elif edit_type_name == "NO_GO_ZONE":
+            from .editor import NoGoZoneEdit as edit_class
+        elif edit_type_name == "SPLIT_ROOM":
+            from .editor import SplitRoomEdit as edit_class
+        elif edit_type_name == "MERGE_ROOMS":
+            from .editor import MergeRoomsEdit as edit_class
+        elif edit_type_name == "RENAME_ROOM":
+            from .editor import RenameRoomEdit as edit_class
+        else:
+            raise ValueError(f"Unknown or unsupported edit type: {edit_type_name}")
+            
+        kwargs = dict(data)
+        kwargs.pop("edit_type", None)
+        status_name = kwargs.pop("status", "PENDING")
+        edit_id = kwargs.pop("edit_id", None)
+        
+        obj = edit_class(**kwargs)
+        if edit_id:
+            obj.edit_id = edit_id
+        obj.status = EditStatus[status_name]
+        return obj
+
 
 
 @dataclass
@@ -395,6 +429,7 @@ class VirtualState:
         self._transformer = transformer
         self._edit_stack: list[EditObject] = []
         self._redo_stack: list[EditObject] = []
+        self._lock = threading.Lock()
         
         # Capture original state for full physical rollback support
         self._original_room_names: dict[int, str] = {}
@@ -449,73 +484,76 @@ class VirtualState:
         return len(self._redo_stack) > 0
 
     def add_edit(self, edit: EditObject) -> tuple[bool, str | None]:
-        """Add an edit to the stack.
+        with self._lock:
+                """Add an edit to the stack.
 
-        Args:
-            edit: The edit to add.
+                Args:
+                    edit: The edit to add.
 
-        Returns:
-            Tuple of (success, error_message).
-        """
-        if self._base_map is None:
-            return False, "No base map data available"
+                Returns:
+                    Tuple of (success, error_message).
+                """
+                if self._base_map is None:
+                    return False, "No base map data available"
 
-        # Validate the edit
-        is_valid, error = edit.validate(self._base_map)
-        if not is_valid:
-            return False, error
+                # Validate the edit
+                is_valid, error = edit.validate(self._base_map)
+                if not is_valid:
+                    return False, error
 
-        # Create inverse for rollback
-        edit.inverse = edit.create_inverse()
-        edit.status = EditStatus.APPLIED
+                # Create inverse for rollback
+                edit.inverse = edit.create_inverse()
+                edit.status = EditStatus.APPLIED
 
-        # Apply to virtual state
-        if self._transformer:
-            edit.apply(self._base_map, self._transformer)
+                # Apply to virtual state
+                if self._transformer:
+                    edit.apply(self._base_map, self._transformer)
 
-        self._edit_stack.append(edit)
-        self._redo_stack.clear()  # Clear redo stack on new edit
+                self._edit_stack.append(edit)
+                self._redo_stack.clear()  # Clear redo stack on new edit
 
-        _LOGGER.debug(f"Added edit: {edit.edit_id} ({edit.edit_type.name})")
-        return True, None
+                _LOGGER.debug(f"Added edit: {edit.edit_id} ({edit.edit_type.name})")
+                return True, None
 
     def undo(self) -> EditObject | None:
-        """Undo the last edit.
+        with self._lock:
+                """Undo the last edit.
 
-        Returns:
-            The undone edit, or None if no edits to undo.
-        """
-        if not self._edit_stack:
-            return None
+                Returns:
+                    The undone edit, or None if no edits to undo.
+                """
+                if not self._edit_stack:
+                    return None
 
-        edit = self._edit_stack.pop()
-        self._redo_stack.append(edit)
+                edit = self._edit_stack.pop()
+                self._redo_stack.append(edit)
 
-        # Apply inverse to virtual state
-        if edit.inverse and self._base_map and self._transformer:
-            edit.inverse.apply(self._base_map, self._transformer)
+                # Apply inverse to virtual state
+                if edit.inverse and self._base_map and self._transformer:
+                    edit.inverse.apply(self._base_map, self._transformer)
 
-        _LOGGER.debug(f"Undone edit: {edit.edit_id}")
-        return edit
+                _LOGGER.debug(f"Undone edit: {edit.edit_id}")
+                return edit
 
     def redo(self) -> EditObject | None:
-        """Redo the last undone edit.
+        with self._lock:
+                """Redo the last undone edit.
 
-        Returns:
-            The redone edit, or None if no edits to redo.
-        """
-        if not self._redo_stack:
-            return None
+                Returns:
+                    The redone edit, or None if no edits to redo.
+                """
+                if not self._redo_stack:
+                    return None
 
-        edit = self._redo_stack.pop()
-        self._edit_stack.append(edit)
+                edit = self._redo_stack.pop()
+                self._edit_stack.append(edit)
 
-        # Re-apply the edit
-        if self._base_map and self._transformer:
-            edit.apply(self._base_map, self._transformer)
+                # Re-apply the edit
+                if self._base_map and self._transformer:
+                    edit.apply(self._base_map, self._transformer)
 
-        _LOGGER.debug(f"Redone edit: {edit.edit_id}")
-        return edit
+                _LOGGER.debug(f"Redone edit: {edit.edit_id}")
+                return edit
 
     def refresh_base_map(self, map_data: MapData) -> None:
         """Refresh the base map and coordinate transformer.
@@ -533,10 +571,11 @@ class VirtualState:
         _LOGGER.debug("Refreshed base map in VirtualState")
 
     def clear(self) -> None:
-        """Clear all edits and reset to base state."""
-        self._edit_stack.clear()
-        self._redo_stack.clear()
-        _LOGGER.debug("Cleared all edits")
+        with self._lock:
+                """Clear all edits and reset to base state."""
+                self._edit_stack.clear()
+                self._redo_stack.clear()
+                _LOGGER.debug("Cleared all edits")
 
     def get_edits_by_type(self, edit_type: EditType) -> list[EditObject]:
         """Get all edits of a specific type.
@@ -588,3 +627,33 @@ class VirtualState:
     def __len__(self) -> int:
         """Return the number of pending edits."""
         return len(self._edit_stack)
+
+    def save(self, filepath: str | pathlib.Path) -> None:
+        """Save pending edits to a JSON file."""
+        with self._lock:
+            data = {
+                "edits": [edit.to_dict() for edit in self._edit_stack]
+            }
+            with open(filepath, "w") as f:
+                json.dump(data, f, indent=2)
+
+    def load(self, filepath: str | pathlib.Path) -> None:
+        """Load pending edits from a JSON file."""
+        path = pathlib.Path(filepath)
+        if not path.exists():
+            return
+            
+        with self._lock:
+            with open(path, "r") as f:
+                try:
+                    data = json.load(f)
+                    self._edit_stack.clear()
+                    self._redo_stack.clear()
+                    for edit_data in data.get("edits", []):
+                        try:
+                            edit = EditObject.from_dict(edit_data)
+                            self._edit_stack.append(edit)
+                        except Exception as e:
+                            _LOGGER.error(f"Failed to load edit: {e}")
+                except Exception as e:
+                    _LOGGER.error(f"Failed to parse virtual state file: {e}")

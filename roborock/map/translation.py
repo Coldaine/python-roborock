@@ -460,8 +460,9 @@ class TranslationLayer:
             params["map_flag"] = map_flag
         elif isinstance(params, list):
             # For list params, we may need to wrap in a dict or prepend
-            # This depends on the specific command - V1 often uses [map_flag, ...data]
-            params = [map_flag] + params
+            # Prevent double-wrapping if map_flag is already prepended
+            if not params or params[0] != map_flag:
+                params = [map_flag] + params
         return params
 
     async def create_map_backup(self, map_flag: int | None = None) -> bool:
@@ -539,10 +540,10 @@ class TranslationLayer:
         # 3. Build spatial mapping (Old ID -> List of New IDs)
         id_map: dict[int, list[int]] = {}
         for old_id, old_room in old_rooms.items():
-            old_bbox = BoundingBox(old_room.x0, old_room.x1, old_room.y0, old_room.y1)
+            old_bbox = BoundingBox(min_x=old_room.x0, max_x=old_room.x1, min_y=old_room.y0, max_y=old_room.y1)
             
             for new_id, new_room in new_rooms.items():
-                new_bbox = BoundingBox(new_room.x0, new_room.x1, new_room.y0, new_room.y1)
+                new_bbox = BoundingBox(min_x=new_room.x0, max_x=new_room.x1, min_y=new_room.y0, max_y=new_room.y1)
                 
                 # Check overlap
                 overlap = calculate_room_overlap(old_bbox, new_bbox)

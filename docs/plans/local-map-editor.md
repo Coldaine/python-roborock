@@ -102,8 +102,20 @@ The primary engineering hurdle is translating natural language ("the kitchen") i
 
 ---
 
-## Next Steps for Implementation
+## Testing Strategy & Guardrails (CRITICAL)
 
-1. **[PRIORITY] Parser Exploration Script:** Write a targeted script (`roborock/map/explore_parser.py`) to pull a live map and inspect the `MapData` object for raw mathematical coordinates. This validates the feasibility of Phase 1.
-2. **Scaffold the Local State Machine:** Create `roborock/map/editor.py` with the `VirtualState` and `EditObject` base classes.
-3. **Polymorphic Translation Design:** Define the internal schema for V1 vs. A01/B01 map editing payloads.
+Because the map editor is inherently destructive (operations like splitting rooms and saving walls overwrite the robot's state), **destructive commands MUST NOT be executed on physical robots during automated or ad-hoc testing** (unless explicitly part of a signed-off, manual risk-assessment scenario).
+
+1. **No Live Destructive Testing:** All translation layers and CLI execution paths must be tested against a Mock MQTT Broker or simulated local devices.
+2. **Transactional Integrity Verification:** Tests must explicitly verify that `create_map_backup` is called before execution, and `restore_map_backup` is invoked immediately upon any failure in the Two/Three-Stage Sync batch.
+3. **Payload Parity Validation:** Mock E2E tests must capture the outbound RPC payloads emitted by `TranslationLayer` and assert they mathematically match the expected constraints (e.g., coordinates are properly transformed integers, `map_flag` is injected, V1 additive batches include original state).
+4. **Dynamic Protocol Fallback:** Tests must ensure the CLI dynamically chooses the V1 or A01/B01 translator based on `device_info.yaml` (via `code_mappings`), rather than hardcoding.
+
+---
+
+## Next Steps for Implementation (Revised)
+
+1. **Fix Transactional Integrity:** Update `roborock/cli.py` (`_execute_edit`) to wrap the `translation.execute_edits` call in a `create_map_backup()` / `restore_map_backup()` try/except block.
+2. **Implement Dynamic Protocol Selection:** Update the CLI to resolve the correct protocol version using `RoborockProductNickname` and `ProductInfo` instead of hardcoding `"v1"`.
+3. **Safe E2E MQTT Tests:** Build an end-to-end integration test (`tests/e2e/test_map_editor_mqtt.py`) that feeds a real map JSON payload (e.g., `home_data_device_a245.json`) into the `MapParser`, runs the full CLI edit flow (VirtualState -> Editor -> TranslationLayer), and traps the outbound MQTT messages to assert correctness without physical side-effects.
+4. **Natural Language Semantic Engine:** Enhance the CLI input parsing to support conversational commands (e.g., "Split the Kitchen in half") vs raw coordinate/room ID injections.

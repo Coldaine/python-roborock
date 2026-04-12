@@ -203,11 +203,20 @@ class RoborockContext(Cache):
         if device_id not in self._virtual_states:
             if map_data is None:
                 return None
-            
+
             transformer = CoordinateTransformer.from_map_data(map_data)
-            self._virtual_states[device_id] = VirtualState(map_data, transformer)
-            
+            state = VirtualState(map_data, transformer)
+            state_file = Path(f"~/.roborock.map_edit_{device_id}.json").expanduser()
+            state.load(state_file)
+            self._virtual_states[device_id] = state
+
         return self._virtual_states[device_id]
+
+    def save_virtual_state(self, device_id: str) -> None:
+        """Save the virtual state for a device to disk."""
+        if device_id in self._virtual_states:
+            state_file = Path(f"~/.roborock.map_edit_{device_id}.json").expanduser()
+            self._virtual_states[device_id].save(state_file)
 
     def reload(self):
         if self.roborock_file.is_file():
@@ -1413,73 +1422,109 @@ def _generate_preview(map_data, virtual_state, transformer, output_path: str = "
 
 
 async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
-    """Execute virtual state edits on the device with verification."""
+    """Execute virtual state edits on the device with verification and transactional safety."""
     from roborock.map import MapVerifier, TranslationLayer
     from roborock.map.editor import EditStatus
     from roborock.devices.traits.v1.command import CommandTrait
-    
+
     click.echo("\nExecuting edit...")
-    
+
+    # Determine protocol from device info
+    protocol = "v1"
+    if hasattr(device, 'device_info') and device.device_info:
+        pv = getattr(device.device_info, 'pv', '')
+        if pv == "B01":
+            # For now, assume b01_q7 for B01 devices. Later can expand to check product.model
+            protocol = "b01_q7"
+        elif pv == "A01":
+            click.echo("ERROR: Map editing for A01 devices not yet supported.")
+            return False
+
     # Get command trait from device
-    if not device.v1_properties:
-        click.echo("ERROR: Device does not support V1 protocol")
-        return False
-    
-    # Try to get command trait
+    # For B01, command is currently on device.b01.command, for V1 it's on v1_properties.command
+    # To keep it robust, we look for command trait directly if possible.
     command_trait = None
-    if hasattr(device.v1_properties, 'command'):
-        command_trait = device.v1_properties.command
-    
+    map_content_trait = None
+
+    if device.v1_properties:
+        command_trait = getattr(device.v1_properties, 'command', None)
+        map_content_trait = getattr(device.v1_properties, 'map_content', None)
+    else:
+        # Check if it has a command trait exposed via other traits (e.g. b01)
+        # Assuming we can find it:
+        for prop_name in ['b01', 'q10', 'q7']:
+            prop = getattr(device, prop_name, None)
+            if prop and hasattr(prop, 'command'):
+                command_trait = prop.command
+                break
+
     if not command_trait:
-        click.echo("ERROR: Device does not have command trait")
+        click.echo("ERROR: Device does not have an exposed command trait")
         return False
-    
-    map_content_trait = getattr(device.v1_properties, 'map_content', None)
-    
+
     # Create translation layer with proper arguments
     translation = TranslationLayer(
         command_trait=command_trait,
         map_content_trait=map_content_trait,
-        protocol="v1",
+        protocol=protocol,
     )
-    
-    # Execute edits
-    results = await translation.execute_edits(virtual_state, map_flag)
-    
-    if not results:
-        click.echo("ERROR: No edits were executed")
+
+    click.echo("Creating pre-sync map backup...")
+    backup_success = await translation.create_map_backup(map_flag)
+    if not backup_success:
+        click.echo("WARNING: Failed to create map backup. Proceeding with caution.")
+
+    try:
+        # Execute edits
+        results = await translation.execute_edits(virtual_state, map_flag)
+
+        if not results:
+            click.echo("ERROR: No edits were executed")
+            return False
+
+        # Check if any edits failed
+        failed_results = [r for r in results if not r.success]
+        if failed_results:
+            click.echo(f"ERROR: {len(failed_results)} edit(s) failed:")
+            for r in failed_results:
+                click.echo(f"  - {r.edit.edit_type.name}: {r.error}")
+
+            click.echo("Rolling back changes...")
+            await translation.restore_map_backup(map_flag)
+            return False
+
+        click.echo(f"  Translation layer completed: {len(results)} edit(s)")
+
+    except Exception as e:
+        click.echo(f"ERROR: Exception during execution: {e}")
+        click.echo("Rolling back changes...")
+        await translation.restore_map_backup(map_flag)
         return False
-    
-    # Check if all edits succeeded
-    failed_results = [r for r in results if not r.success]
-    if failed_results:
-        click.echo(f"ERROR: {len(failed_results)} edit(s) failed:")
-        for r in failed_results:
-            click.echo(f"  - {r.edit.edit_type.name}: {r.error}")
-        return False
-    
-    click.echo(f"  Translation layer completed: {len(results)} edit(s)")
-    
+
     # Verify the edit was applied
     click.echo("\nVerifying edit was applied...")
-    verifier = MapVerifier(map_content_trait=device.v1_properties.map_content)
-    
-    verification_results = await verifier.verify_edits(virtual_state)
-    
-    all_verified = all(r.verified for r in verification_results)
-    if all_verified:
-        click.echo("  SUCCESS: All edits verified on device")
-        # Mark edits as synced in virtual state
+    if map_content_trait:
+        verifier = MapVerifier(map_content_trait=map_content_trait)
+        verification_results = await verifier.verify_edits(virtual_state)
+
+        all_verified = all(r.verified for r in verification_results)
+        if all_verified:
+            click.echo("  SUCCESS: All edits verified on device")
+            # Mark edits as synced in virtual state
+            for edit in virtual_state.pending_edits:
+                edit.status = EditStatus.SYNCED
+            return True
+        else:
+            failed_verifications = [r for r in verification_results if not r.verified]
+            click.echo(f"  WARNING: {len(failed_verifications)} edit(s) could not be verified")
+            for r in failed_verifications:
+                click.echo(f"    - {r.edit_type}: {r.mismatch_reason}")
+            return False
+    else:
+        click.echo("  WARNING: Map content trait unavailable, skipping verification")
         for edit in virtual_state.pending_edits:
             edit.status = EditStatus.SYNCED
         return True
-    else:
-        failed_verifications = [r for r in verification_results if not r.verified]
-        click.echo(f"  WARNING: {len(failed_verifications)} edit(s) could not be verified")
-        for r in failed_verifications:
-            click.echo(f"    - {r.edit_type}: {r.mismatch_reason}")
-        return False
-
 
 # =============================================================================
 # Map Editor Commands
@@ -1936,8 +1981,9 @@ async def map_edit_sync(ctx, device_id: str):
     if success:
         click.echo("Sync successful. Clearing pending edits.")
         virtual_state.clear()
+        context.save_virtual_state(device_id)
     else:
-        click.echo("Sync failed or partially completed.")
+        click.echo(\"Sync failed or partially completed.\")
 
 
 @session.command()
@@ -1985,7 +2031,8 @@ async def map_edit_clear(ctx, device_id: str):
 
     if virtual_state:
         virtual_state.clear()
-        click.echo("Cleared all pending edits")
+        context.save_virtual_state(device_id)
+    click.echo("Cleared all pending edits")
     else:
         click.echo("No virtual state found for this device")
 
