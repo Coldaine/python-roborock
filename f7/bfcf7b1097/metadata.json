@@ -1,0 +1,23 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "f7bfcf7b1097",
+  "strategy": "manual-commit",
+  "branch": "feat/local-map-editor",
+  "checkpoints_count": 2,
+  "files_touched": null,
+  "sessions": [
+    {
+      "metadata": "/f7/bfcf7b1097/0/metadata.json",
+      "transcript": "/f7/bfcf7b1097/0/full.jsonl",
+      "content_hash": "/f7/bfcf7b1097/0/content_hash.txt",
+      "prompt": "/f7/bfcf7b1097/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 19435644,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 16239323,
+    "output_tokens": 131642,
+    "api_call_count": 190
+  }
+}

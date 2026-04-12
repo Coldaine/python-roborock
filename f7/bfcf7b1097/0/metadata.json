@@ -1,0 +1,23 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "f7bfcf7b1097",
+  "session_id": "007b1f65-a920-499c-abfd-330975c55d16",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-12T03:42:51.9453813Z",
+  "branch": "feat/local-map-editor",
+  "checkpoints_count": 2,
+  "files_touched": [],
+  "agent": "Gemini CLI",
+  "model": "gemini-3-flash-preview",
+  "turn_id": "ca3d6ff54021",
+  "token_usage": {
+    "input_tokens": 19435644,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 16239323,
+    "output_tokens": 131642,
+    "api_call_count": 190
+  },
+  "session_metrics": {
+    "turn_count": 23
+  }
+}
