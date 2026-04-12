@@ -182,9 +182,24 @@ class RoborockContext(Cache):
         self._virtual_states: dict[str, Any] = {}
 
     def get_virtual_state(self, device_id: str, map_data: Any = None) -> Any:
-        """Get or create a VirtualState for a device."""
+        """Get or create a VirtualState for a device with version safety."""
         from roborock.map import CoordinateTransformer, VirtualState
         
+        if device_id in self._virtual_states:
+            state = self._virtual_states[device_id]
+            # If map_data is provided, check for state drift
+            if map_data is not None and state._base_map is not None:
+                # Simple version check: room count or timestamp
+                curr_rooms = set(map_data.rooms.keys()) if map_data.rooms else set()
+                base_rooms = set(state._base_map.rooms.keys()) if state._base_map.rooms else set()
+                
+                if curr_rooms != base_rooms:
+                    click.echo(f"WARNING: Device map for {device_id} has changed. Local edits may be invalid.")
+                    if click.confirm("Clear pending edits and refresh state?"):
+                        del self._virtual_states[device_id]
+                    else:
+                        click.echo("Continuing with potentially stale state (DANGEROUS)")
+            
         if device_id not in self._virtual_states:
             if map_data is None:
                 return None
@@ -1373,17 +1388,18 @@ def _generate_preview(map_data, virtual_state, transformer, output_path: str = "
         draw = ImageDraw.Draw(img)
         
         # Draw each pending edit in red
+        from roborock.map.editor import EditType
         for edit in virtual_state.pending_edits:
-            if edit.edit_type.value == "split_room":
+            if edit.edit_type == EditType.SPLIT_ROOM:
                 # Draw split line in red
                 p1 = transformer.robot_to_image(Point(edit.x1, edit.y1))
                 p2 = transformer.robot_to_image(Point(edit.x2, edit.y2))
                 draw.line([(int(p1.x), int(p1.y)), (int(p2.x), int(p2.y))], fill=(255, 0, 0), width=3)
-            elif edit.edit_type.value in ["virtual_wall", "no_go_zone"]:
+            elif edit.edit_type in [EditType.VIRTUAL_WALL, EditType.NO_GO_ZONE]:
                 # Draw virtual walls/no-go zones in red
                 p1 = transformer.robot_to_image(Point(edit.x1, edit.y1))
                 p2 = transformer.robot_to_image(Point(edit.x2, edit.y2))
-                if edit.edit_type.value == "virtual_wall":
+                if edit.edit_type == EditType.VIRTUAL_WALL:
                     draw.line([(int(p1.x), int(p1.y)), (int(p2.x), int(p2.y))], fill=(255, 0, 0), width=3)
                 else:
                     # No-go zone - draw rectangle
@@ -1865,6 +1881,14 @@ async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int
 @async_command
 async def map_edit_status(ctx, device_id: str):
     """Show pending edits in the virtual state."""
+    from roborock.map.editor import (
+        MergeRoomsEdit,
+        NoGoZoneEdit,
+        RenameRoomEdit,
+        SplitRoomEdit,
+        VirtualWallEdit,
+    )
+    
     context: RoborockContext = ctx.obj
     virtual_state = context.get_virtual_state(device_id)
 
@@ -1874,7 +1898,19 @@ async def map_edit_status(ctx, device_id: str):
 
     click.echo(f"Pending edits for device {device_id}:")
     for i, edit in enumerate(virtual_state.pending_edits):
-        click.echo(f"  {i+1}. {edit.edit_type.name} (Status: {edit.status.name})")
+        details = ""
+        if isinstance(edit, VirtualWallEdit):
+            details = f"({edit.x1:.0f}, {edit.y1:.0f}) -> ({edit.x2:.0f}, {edit.y2:.0f})"
+        elif isinstance(edit, NoGoZoneEdit):
+            details = f"[{edit.x1:.0f}, {edit.y1:.0f}, {edit.x2:.0f}, {edit.y2:.0f}]"
+        elif isinstance(edit, SplitRoomEdit):
+            details = f"Room {edit.segment_id} @ ({edit.x1:.0f}, {edit.y1:.0f}) -> ({edit.x2:.0f}, {edit.y2:.0f})"
+        elif isinstance(edit, MergeRoomsEdit):
+            details = f"Rooms: {edit.segment_ids}"
+        elif isinstance(edit, RenameRoomEdit):
+            details = f"Room {edit.segment_id}: '{edit.old_name}' -> '{edit.new_name}'"
+            
+        click.echo(f"  {i+1}. {edit.edit_type.name:15} {details} (Status: {edit.status.name})")
 
 
 @session.command()

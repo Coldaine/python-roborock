@@ -200,14 +200,20 @@ class MapVerifier:
         # Check for matching wall (with tolerance)
         tolerance = 100  # 10cm in mm
         for wall in map_data.walls:
-            wall_point1 = Point(wall.x, wall.y)
-            # Wall may be stored as single point with orientation, or two points
-            if self._points_match(Point(edit.x1, edit.y1), wall_point1, tolerance):
+            # Wall has x1, y1, x2, y2 from parser
+            w_p1 = Point(wall.x1, wall.y1)
+            w_p2 = Point(wall.x2, wall.y2)
+            e_p1 = Point(edit.x1, edit.y1)
+            e_p2 = Point(edit.x2, edit.y2)
+            
+            # Check both directions
+            if (self._points_match(e_p1, w_p1, tolerance) and self._points_match(e_p2, w_p2, tolerance)) or \
+               (self._points_match(e_p1, w_p2, tolerance) and self._points_match(e_p2, w_p1, tolerance)):
                 return VerificationResult(
                     verified=True,
                     edit_type="VIRTUAL_WALL",
                     expected=expected,
-                    actual={"x": wall.x, "y": wall.y},
+                    actual={"x1": wall.x1, "y1": wall.y1, "x2": wall.x2, "y2": wall.y2},
                 )
 
         return VerificationResult(

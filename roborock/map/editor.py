@@ -395,14 +395,39 @@ class VirtualState:
         self._transformer = transformer
         self._edit_stack: list[EditObject] = []
         self._redo_stack: list[EditObject] = []
+        
+        # Capture original state for full physical rollback support
         self._original_room_names: dict[int, str] = {}
+        self._original_walls: list[tuple[float, float, float, float]] = []
+        self._original_no_go_zones: list[tuple[float, float, float, float]] = []
+        self._original_mop_zones: list[tuple[float, float, float, float]] = []
 
-        # Capture original room names for rollback
-        if map_data and map_data.rooms:
-            for room_id, room in map_data.rooms.items():
-                if hasattr(room, 'name'):
-                    self._original_room_names[room_id] = room.name
+        if map_data:
+            # Capture rooms
+            if map_data.rooms:
+                for room_id, room in map_data.rooms.items():
+                    if hasattr(room, 'name') and room.name:
+                        self._original_room_names[room_id] = room.name
 
+            # Capture walls (if exposed by parser)
+            if hasattr(map_data, 'walls') and map_data.walls:
+                for wall in map_data.walls:
+                    self._original_walls.append((wall.x1, wall.y1, wall.x2, wall.y2))
+
+            # Capture zones (if exposed by parser)
+            if hasattr(map_data, 'no_go_areas') and map_data.no_go_areas:
+                for zone in map_data.no_go_areas:
+                    # Note: we simplify to 4-coord bbox for compatibility
+                    xs = [p.x for p in zone.points]
+                    ys = [p.y for p in zone.points]
+                    self._original_no_go_zones.append((min(xs), min(ys), max(xs), max(ys)))
+
+            # Capture mop zones
+            if hasattr(map_data, 'no_mop_areas') and map_data.no_mop_areas:
+                for zone in map_data.no_mop_areas:
+                    xs = [p.x for p in zone.points]
+                    ys = [p.y for p in zone.points]
+                    self._original_mop_zones.append((min(xs), min(ys), max(xs), max(ys)))
     @property
     def has_pending_edits(self) -> bool:
         """Return True if there are pending edits."""
@@ -492,6 +517,21 @@ class VirtualState:
         _LOGGER.debug(f"Redone edit: {edit.edit_id}")
         return edit
 
+    def refresh_base_map(self, map_data: MapData) -> None:
+        """Refresh the base map and coordinate transformer.
+
+        This is used after a physical sync to ensure the virtual state
+        matches the current device state.
+
+        Args:
+            map_data: The fresh map data from device.
+        """
+        from .geometry import CoordinateTransformer
+        
+        self._base_map = map_data
+        self._transformer = CoordinateTransformer.from_map_data(map_data)
+        _LOGGER.debug("Refreshed base map in VirtualState")
+
     def clear(self) -> None:
         """Clear all edits and reset to base state."""
         self._edit_stack.clear()
@@ -541,6 +581,8 @@ class VirtualState:
         return {
             "edits": [e.to_dict() for e in self._edit_stack],
             "original_room_names": self._original_room_names,
+            "original_walls": self._original_walls,
+            "original_no_go_zones": self._original_no_go_zones,
         }
 
     def __len__(self) -> int:

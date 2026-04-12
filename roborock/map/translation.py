@@ -95,12 +95,12 @@ class V1ProtocolTranslator(ProtocolTranslator):
         """
         # V1 uses the full map update approach
         wall_data = [int(edit.x1), int(edit.y1), int(edit.x2), int(edit.y2)]
-        return "set_virtual_wall", [wall_data]
+        return RoborockCommand.SET_VIRTUAL_WALL, [wall_data]
 
     def translate_no_go_zone(self, edit: NoGoZoneEdit) -> tuple[str, Any]:
         """Translate to SET_NO_GO_ZONES command."""
         zone_data = [int(edit.x1), int(edit.y1), int(edit.x2), int(edit.y2)]
-        return "set_no_go_zones", [zone_data]
+        return RoborockCommand.SET_NO_GO_ZONES, [zone_data]
 
     def translate_split_room(self, edit: SplitRoomEdit) -> tuple[str, Any]:
         """Translate to SPLIT_SEGMENT command.
@@ -264,10 +264,108 @@ class TranslationLayer:
         additive_edits = virtual_state.get_additive_edits()
         if additive_edits and topology_success:
             _LOGGER.info(f"Stage 3: Executing {len(additive_edits)} additive edits")
-            for edit in additive_edits:
-                result = await self._execute_edit(edit, map_flag)
-                results.append(result)
+            
+            if self._protocol == "v1":
+                # V1 requires batching additive edits as they overwrite the entire state
+                batch_results = await self._execute_v1_additive_batch(virtual_state, additive_edits, map_flag)
+                results.extend(batch_results)
+            else:
+                # B01 might support individual updates (verify)
+                for edit in additive_edits:
+                    result = await self._execute_edit(edit, map_flag)
+                    results.append(result)
 
+        return results
+
+    async def _execute_v1_additive_batch(
+        self,
+        virtual_state: VirtualState,
+        edits: list[EditObject],
+        map_flag: int | None,
+    ) -> list[TranslationResult]:
+        """Execute additive edits as a batch for V1 protocol.
+        
+        V1 commands like set_virtual_wall overwrite the entire list,
+        so we must combine new edits with existing state.
+        """
+        results: list[TranslationResult] = []
+        pending_walls = [e for e in edits if isinstance(e, VirtualWallEdit) and e.status == EditStatus.APPLIED]
+        pending_zones = [e for e in edits if isinstance(e, NoGoZoneEdit) and e.status == EditStatus.APPLIED]
+        pending_mop_zones = [e for e in edits if e.edit_type == EditType.MOP_FORBIDDEN_ZONE and e.status == EditStatus.APPLIED]
+        
+        # 1. Handle Virtual Walls
+        if pending_walls:
+            # Combine original walls with new ones
+            all_walls = list(virtual_state._original_walls)
+            for wall in pending_walls:
+                all_walls.append((wall.x1, wall.y1, wall.x2, wall.y2))
+            
+            # Format: [map_flag, [[x1, y1, x2, y2], ...]]
+            params = [list(w) for w in all_walls]
+            if map_flag is not None:
+                params = [map_flag, params]
+            
+            try:
+                _LOGGER.debug(f"Sending V1 wall batch: {params}")
+                await self._command.send(RoborockCommand.SET_VIRTUAL_WALL, params)
+                for edit in pending_walls:
+                    edit.status = EditStatus.SYNCED
+                    results.append(TranslationResult(success=True, edit=edit))
+            except Exception as e:
+                _LOGGER.error(f"Failed to sync wall batch: {e}")
+                for edit in pending_walls:
+                    edit.status = EditStatus.FAILED
+                    results.append(TranslationResult(success=False, edit=edit, error=str(e)))
+
+        # 2. Handle No-Go Zones
+        if pending_zones:
+            # Combine original zones with new ones
+            all_zones = list(virtual_state._original_no_go_zones)
+            for zone in pending_zones:
+                all_zones.append((zone.x1, zone.y1, zone.x2, zone.y2))
+            
+            # Format: [map_flag, [[x1, y1, x2, y2], ...]]
+            params = [list(z) for z in all_zones]
+            if map_flag is not None:
+                params = [map_flag, params]
+                
+            try:
+                _LOGGER.debug(f"Sending V1 zone batch: {params}")
+                await self._command.send(RoborockCommand.SET_NO_GO_ZONES, params)
+                for edit in pending_zones:
+                    edit.status = EditStatus.SYNCED
+                    results.append(TranslationResult(success=True, edit=edit))
+            except Exception as e:
+                _LOGGER.error(f"Failed to sync zone batch: {e}")
+                for edit in pending_zones:
+                    edit.status = EditStatus.FAILED
+                    results.append(TranslationResult(success=False, edit=edit, error=str(e)))
+
+        # 3. Handle Mop Forbidden Zones
+        if pending_mop_zones:
+            # Combine original mop zones with new ones
+            all_mop_zones = list(virtual_state._original_mop_zones)
+            for zone in pending_mop_zones:
+                # Mop zones are typically same 4-coord format
+                if hasattr(zone, 'x1'):
+                    all_mop_zones.append((zone.x1, zone.y1, zone.x2, zone.y2))
+            
+            params = [list(z) for z in all_mop_zones]
+            if map_flag is not None:
+                params = [map_flag, params]
+                
+            try:
+                _LOGGER.debug(f"Sending V1 mop zone batch: {params}")
+                await self._command.send(RoborockCommand.SET_MOP_FORBIDDEN_ZONE, params)
+                for edit in pending_mop_zones:
+                    edit.status = EditStatus.SYNCED
+                    results.append(TranslationResult(success=True, edit=edit))
+            except Exception as e:
+                _LOGGER.error(f"Failed to sync mop zone batch: {e}")
+                for edit in pending_mop_zones:
+                    edit.status = EditStatus.FAILED
+                    results.append(TranslationResult(success=False, edit=edit, error=str(e)))
+                    
         return results
 
     async def _execute_edit(
@@ -500,5 +598,5 @@ class TranslationLayer:
 
         # 5. Update the base map for the VirtualState so subsequent matches are correct
         # This is important if we're doing multiple rounds or just to keep state consistent.
-        # virtual_state._base_map = new_map (Internal access needed or a public setter)
-        # For now, we've updated the pending edits which is the primary goal for execution.
+        virtual_state.refresh_base_map(new_map)
+        _LOGGER.info("Refreshed VirtualState base map after remapping")
