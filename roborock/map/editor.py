@@ -653,6 +653,10 @@ class VirtualState:
 
         async with self._lock:
             self._base_map = map_data
+            # Force re-capture of validation metadata for the refreshed base map.
+            self._map_flag = None
+            self._map_hash = None
+            self._capture_base_state(map_data)
             self._transformer = CoordinateTransformer.from_map_data(map_data)
             _LOGGER.debug("Refreshed base map in VirtualState")
 

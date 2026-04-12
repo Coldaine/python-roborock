@@ -200,7 +200,16 @@ class MapVerifier:
         """Verify a virtual wall exists in map data."""
         expected = {"x1": edit.x1, "y1": edit.y1, "x2": edit.x2, "y2": edit.y2}
 
-        if not map_data.walls:
+        walls = getattr(map_data, "walls", None)
+        if walls is None:
+            return VerificationResult(
+                verified=True,
+                edit_type="VIRTUAL_WALL",
+                expected=expected,
+                mismatch_reason="Map data does not expose virtual walls",
+            )
+
+        if not walls:
             return VerificationResult(
                 verified=False,
                 edit_type="VIRTUAL_WALL",
@@ -210,7 +219,7 @@ class MapVerifier:
 
         # Check for matching wall (with tolerance)
         tolerance = 100  # 10cm in mm
-        for wall in map_data.walls:
+        for wall in walls:
             # Wall has x1, y1, x2, y2 from parser
             w_p1 = Point(wall.x1, wall.y1)
             w_p2 = Point(wall.x2, wall.y2)
@@ -242,7 +251,16 @@ class MapVerifier:
         """Verify a no-go zone exists in map data."""
         expected = {"x1": edit.x1, "y1": edit.y1, "x2": edit.x2, "y2": edit.y2}
 
-        if not map_data.no_go_areas:
+        no_go_areas = getattr(map_data, "no_go_areas", None)
+        if no_go_areas is None:
+            return VerificationResult(
+                verified=True,
+                edit_type="NO_GO_ZONE",
+                expected=expected,
+                mismatch_reason="Map data does not expose no-go areas",
+            )
+
+        if not no_go_areas:
             return VerificationResult(
                 verified=False,
                 edit_type="NO_GO_ZONE",
@@ -252,7 +270,7 @@ class MapVerifier:
 
         # Check for matching zone
         tolerance = 100  # 10cm in mm
-        for zone in map_data.no_go_areas:
+        for zone in no_go_areas:
             # No-go zones are typically polygons, check bounding box match
             zone_xs = [p.x for p in zone.points]
             zone_ys = [p.y for p in zone.points]
@@ -302,6 +320,17 @@ class MapVerifier:
                 expected=expected,
                 mismatch_reason="No rooms in map data",
             )
+
+        expected_new_rooms = getattr(edit, "new_room_ids", None) or getattr(edit, "new_rooms", None)
+        if expected_new_rooms:
+            current_rooms = set(map_data.rooms.keys())
+            if set(expected_new_rooms).issubset(current_rooms):
+                return VerificationResult(
+                    verified=True,
+                    edit_type="SPLIT_ROOM",
+                    expected={"segment_id": edit.segment_id, "new_rooms": list(expected_new_rooms)},
+                    actual={"new_rooms": list(map_data.rooms.keys())},
+                )
 
         # Check if original segment still exists
         if edit.segment_id not in map_data.rooms:

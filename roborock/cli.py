@@ -221,6 +221,24 @@ class RoborockContext(Cache):
         
         if device_id in self._virtual_states:
             state = self._virtual_states[device_id]
+            if map_data is not None and getattr(state, "_base_map", None) is None:
+                # Rehydrate metadata-only state with concrete map data.
+                state_file = self._get_virtual_state_path(device_id)
+                if state_file.exists():
+                    try:
+                        state = await VirtualState.load(state_file, map_data)
+                        self._virtual_states[device_id] = state
+                        _LOGGER.info(f"Rehydrated persisted virtual state for {device_id} with map data")
+                    except (ValueError, FileNotFoundError) as err:
+                        _LOGGER.warning(f"Could not rehydrate persisted state for {device_id}: {err}")
+                        transformer = CoordinateTransformer.from_map_data(map_data)
+                        state = VirtualState(map_data, transformer)
+                        self._virtual_states[device_id] = state
+                else:
+                    transformer = CoordinateTransformer.from_map_data(map_data)
+                    state = VirtualState(map_data, transformer)
+                    self._virtual_states[device_id] = state
+
             # If map_data is provided, check for state drift
             if map_data is not None and state._base_map is not None:
                 # Simple version check: room count or timestamp
@@ -1604,8 +1622,6 @@ def _generate_preview(map_data, virtual_state, transformer, output_path: str = "
 async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
     """Execute virtual state edits on the device with verification and transactional safety."""
     from roborock.map import MapVerifier, TranslationLayer
-    from roborock.map.editor import EditStatus
-    from roborock.devices.traits.v1.command import CommandTrait
 
     click.echo("\nExecuting edit...")
 
@@ -1698,9 +1714,7 @@ async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
         all_verified = all(v_res.verified for v_res in verification_results)
         if all_verified:
             click.echo("  SUCCESS: All edits verified on device")
-            # Mark edits as synced in virtual state
-            for edit in virtual_state.pending_edits:
-                edit.status = EditStatus.SYNCED
+            await virtual_state.clear()
             return True
         else:
             failed_verifications = [v_res for v_res in verification_results if not v_res.verified]
@@ -1711,8 +1725,7 @@ async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
             return False
     else:
         click.echo("  WARNING: Map content trait unavailable, skipping verification")
-        for edit in virtual_state.pending_edits:
-            edit.status = EditStatus.SYNCED
+        await virtual_state.clear()
         return True
 
 # =============================================================================
@@ -1821,7 +1834,9 @@ async def split_room(ctx, device_id: str, room: str, direction: str, ratio: floa
 
     # Execute if --apply flag is set
     if apply:
-        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
     else:
         click.echo("\nUse --apply flag to execute the edit")
 
@@ -1898,7 +1913,9 @@ async def merge_rooms(ctx, device_id: str, rooms: str, apply: bool, preview: boo
 
     # Execute if --apply flag is set
     if apply:
-        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
     else:
         click.echo("\nUse --apply flag to execute the edit")
 
@@ -1978,7 +1995,9 @@ async def rename_room(ctx, device_id: str, room: str, new_name: str, apply: bool
 
     # Execute if --apply flag is set
     if apply:
-        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
     else:
         click.echo("\nUse --apply flag to execute the edit")
 
@@ -2041,7 +2060,9 @@ async def add_virtual_wall(ctx, device_id: str, x1: int, y1: int, x2: int, y2: i
 
     # Execute if --apply flag is set
     if apply:
-        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
     else:
         click.echo("\nUse --apply flag to execute the edit")
 
@@ -2104,7 +2125,9 @@ async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int
 
     # Execute if --apply flag is set
     if apply:
-        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
     else:
         click.echo("\nUse --apply flag to execute the edit")
 

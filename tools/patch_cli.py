@@ -26,14 +26,14 @@ def main() -> None:
     content = apply_substitution(
         content,
         "undo",
-        r"(\s+edit = virtual_state\.undo\(\)\n\s+)(click\.echo\(\"Undone: \{edit\.edit_type\.name\}\"\))",
-        r"\1context.save_virtual_state(device_id)\n    \2",
+        r"(\s+edit = await virtual_state\.undo\(\)\n\s+)(click\.echo\(\"Undone: \{edit\.edit_type\.name\}\"\))",
+        r"\1await context.save_virtual_state(device_id)\n    \2",
     )
     content = apply_substitution(
         content,
         "redo",
-        r"(\s+edit = virtual_state\.redo\(\)\n\s+)(click\.echo\(\"Redone: \{edit\.edit_type\.name\}\"\))",
-        r"\1context.save_virtual_state(device_id)\n    \2",
+        r"(\s+edit = await virtual_state\.redo\(\)\n\s+)(click\.echo\(\"Redone: \{edit\.edit_type\.name\}\"\))",
+        r"\1await context.save_virtual_state(device_id)\n    \2",
     )
     content = apply_substitution(
         content,

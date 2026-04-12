@@ -159,17 +159,6 @@ def test_list_devices_with_mocked_login():
         roborock_file.write_text(json.dumps({"email": "test@example.com", "user_data": user_data.to_dict()}))
         roborock_cache_file.write_text(json.dumps({}))
 
-        # Mock the API client
-        class FakeApiClient:
-            def __init__(self, user_data: UserData):
-                self.user_data = user_data
-
-            async def get_home_data(self):
-                # Return mock home data
-                from roborock.web_api import HomeData
-
-                return HomeData.from_dict(HOME_DATA_A245)
-
         # Mock DeviceManager
         class FakeDeviceManager:
             def __init__(self, user_params):
@@ -189,10 +178,13 @@ def test_list_devices_with_mocked_login():
             patch("roborock.cli.RoborockContext.roborock_file", roborock_file),
             patch("roborock.cli.RoborockContext.roborock_cache_file", roborock_cache_file),
             patch("roborock.cli.RoborockApiClient") as MockApiClient,
-            patch("roborock.cli.create_device_manager") as mock_create_dm,
+            patch("roborock.cli.create_device_manager", new_callable=AsyncMock) as mock_create_dm,
         ):
+            from roborock.data import HomeData
+
             MockApiClient.return_value = AsyncMock()
-            MockApiClient.return_value.get_home_data = AsyncMock(return_value=None)
+            MockApiClient.return_value.get_home_data_v3 = AsyncMock(return_value=HomeData.from_dict(HOME_DATA_A245))
+            mock_create_dm.return_value = FakeDeviceManager(user_data)
 
             result = runner.invoke(cli, ["list-devices"])
 
@@ -262,6 +254,7 @@ if __name__ == "__main__":
     # 3. Test login flow
     print("\n\n### LOGIN FLOW ###")
     all_results.append(("login", test_login()))
+    all_results.append(("list-devices (mocked auth)", test_list_devices_with_mocked_login()))
 
     # Summary
     print("\n\n" + "=" * 70)
