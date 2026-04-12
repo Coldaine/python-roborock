@@ -91,35 +91,33 @@ def main() -> None:
         content = ensure_locked_async_method(content, method)
 
     persistence_code = """
-    def save(self, filepath: str | pathlib.Path) -> None:
+    async def save(self, filepath: str | pathlib.Path) -> None:
         \"\"\"Save pending edits to a JSON file.\"\"\"
-        with self._lock:
-            data = {
-                "edits": [edit.to_dict() for edit in self._edit_stack]
-            }
-            with open(filepath, "w") as f:
-                json.dump(data, f, indent=2)
+        path = pathlib.Path(filepath)
+        async with self._lock:
+            data = {"edits": [edit.to_dict() for edit in self._edit_stack]}
+            await asyncio.to_thread(path.write_text, json.dumps(data, indent=2), "utf-8")
 
-    def load(self, filepath: str | pathlib.Path) -> None:
+    async def load(self, filepath: str | pathlib.Path) -> None:
         \"\"\"Load pending edits from a JSON file.\"\"\"
         path = pathlib.Path(filepath)
         if not path.exists():
             return
-            
-        with self._lock:
-            with open(path, "r") as f:
-                try:
-                    data = json.load(f)
-                    self._edit_stack.clear()
-                    self._redo_stack.clear()
-                    for edit_data in data.get("edits", []):
-                        try:
-                            edit = EditObject.from_dict(edit_data)
-                            self._edit_stack.append(edit)
-                        except Exception as e:
-                            _LOGGER.error(f"Failed to load edit: {e}")
-                except Exception as e:
-                    _LOGGER.error(f"Failed to parse virtual state file: {e}")
+
+        async with self._lock:
+            try:
+                raw = await asyncio.to_thread(path.read_text, "utf-8")
+                data = json.loads(raw)
+                self._edit_stack.clear()
+                self._redo_stack.clear()
+                for edit_data in data.get("edits", []):
+                    try:
+                        edit = EditObject.from_dict(edit_data)
+                        self._edit_stack.append(edit)
+                    except Exception as e:
+                        _LOGGER.error(f"Failed to load edit: {e}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to parse virtual state file: {e}")
 """
     if "def save(self" not in content:
         content += persistence_code

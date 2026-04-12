@@ -107,8 +107,6 @@ async def test_send_decoded_command_non_dict_response(fake_channel: FakeChannel,
     message = message_builder.build("some_string_error")
     fake_channel.response_queue.append(message)
 
-    # Use a random string for command type to avoid needing import
-
     with pytest.raises(RoborockException, match="Unexpected data type for response"):
         await send_decoded_command(fake_channel, Q7RequestMessage(dps=10000, command="prop.get", params=[]))  # type: ignore[arg-type]
 
@@ -268,7 +266,7 @@ def test_q7_api_wires_map_traits_with_device_metadata() -> None:
     """The Q7 constructor helper should create map traits with metadata."""
     channel = FakeChannel()
     device = HomeDataDevice.from_dict(mock_data.Q7_DEVICE_DATA)
-    product = HomeDataProduct.from_dict(mock_data.SC01_PRODUCT_DATA)
+    product = HomeDataProduct.from_dict(mock_data.Q7_PRODUCT_DATA)
 
     q7_api = create(product, device, channel)
 

@@ -119,6 +119,7 @@ class MapVerifier:
                 progress_callback(f"Verification attempt {attempt}/{self._max_retries}...")
 
             try:
+                current_results: list[VerificationResult] = []
                 # Fetch fresh map data
                 await self._map_content.refresh()
                 map_data = self._map_content.map_data
@@ -132,13 +133,14 @@ class MapVerifier:
                 all_verified = True
                 for edit in virtual_state.pending_edits:
                     result = self._verify_edit(edit, map_data)
-                    results.append(result)
+                    current_results.append(result)
                     if not result.verified:
                         all_verified = False
 
+                results = current_results
                 if all_verified:
                     _LOGGER.info("All edits verified successfully")
-                    return results
+                    return current_results
 
                 # Not all verified, wait and retry
                 if attempt < self._max_retries:

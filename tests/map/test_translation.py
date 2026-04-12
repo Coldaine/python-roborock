@@ -123,7 +123,11 @@ async def test_repopulate_no_map_content(mock_command_trait):
     layer = TranslationLayer(mock_command_trait, None, protocol="v1")
     state = MagicMock()
     state.has_pending_edits = True
-    
-    # Should not crash, just skip remapping
-    await layer._repopulate_room_ids(state)
+    state.get_topology_edits.return_value = []
+    state.get_property_edits.return_value = []
+    state.get_additive_edits.return_value = []
+
+    # Should not crash and should no-op when no edits exist.
+    results = await layer.execute_edits(state, map_flag=1)
+    assert results == []
     assert mock_command_trait.send.call_count == 0

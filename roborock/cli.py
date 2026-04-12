@@ -186,6 +186,31 @@ class RoborockContext(Cache):
         """Get the path for a device's virtual state file."""
         return self._virtual_states_dir / f"{device_id}.json"
 
+    async def _load_persisted_virtual_state(self, device_id: str) -> Any:
+        """Load persisted virtual state without requiring map data.
+
+        This is used for commands like status/undo/clear after process restart.
+        """
+        from roborock.map import VirtualState
+
+        state_file = self._get_virtual_state_path(device_id)
+        if not state_file.exists():
+            return None
+
+        def _read_state(path: Path) -> dict[str, Any]:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+
+        try:
+            data = await asyncio.to_thread(_read_state, state_file)
+            state = VirtualState.from_dict(data)
+            self._virtual_states[device_id] = state
+            _LOGGER.info(f"Loaded persisted virtual state metadata for {device_id} with {len(state)} edits")
+            return state
+        except (OSError, ValueError, json.JSONDecodeError) as err:
+            _LOGGER.warning(f"Could not load persisted state for {device_id}: {err}")
+            return None
+
     async def get_virtual_state(self, device_id: str, map_data: Any = None) -> Any:
         """Get or create a VirtualState for a device with version safety.
         
@@ -211,7 +236,7 @@ class RoborockContext(Cache):
             
         if device_id not in self._virtual_states:
             if map_data is None:
-                return None
+                return await self._load_persisted_virtual_state(device_id)
 
             transformer = CoordinateTransformer.from_map_data(map_data)
             state_file = self._get_virtual_state_path(device_id)
@@ -1257,7 +1282,9 @@ def update_docs(data_file: str, output_file: str):
     for model, data in product_data_from_yaml.items():
         # Reconstruct the DeviceFeatures object from the raw data in the YAML file
         product_nickname_str = data.get("product_nickname")
-        product_nickname = RoborockProductNickname[product_nickname_str] if product_nickname_str else None
+        product_nickname = None
+        if product_nickname_str and product_nickname_str in RoborockProductNickname.__members__:
+            product_nickname = RoborockProductNickname[product_nickname_str]
         device_features = DeviceFeatures.from_feature_flags(
             new_feature_info=data.get("new_feature_info"),
             new_feature_info_str=data.get("new_feature_info_str"),
@@ -1602,6 +1629,9 @@ async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
     if device.v1_properties:
         command_trait = getattr(device.v1_properties, 'command', None)
         map_content_trait = getattr(device.v1_properties, 'map_content', None)
+    elif getattr(device, "b01_q10_properties", None) is not None:
+        command_trait = device.b01_q10_properties.command
+        map_content_trait = getattr(device.b01_q10_properties, "map_content", None)
     else:
         # Check if it has a command trait exposed via other traits (e.g. b01)
         # Assuming we can find it:
@@ -1660,6 +1690,11 @@ async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
         verifier = MapVerifier(map_content_trait=map_content_trait)
         verification_results = await verifier.verify_edits(virtual_state)
 
+        if not verification_results:
+            click.echo("  WARNING: Verification returned no results; rolling back")
+            await translation.restore_map_backup(map_flag)
+            return False
+
         all_verified = all(v_res.verified for v_res in verification_results)
         if all_verified:
             click.echo("  SUCCESS: All edits verified on device")
@@ -1672,6 +1707,7 @@ async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
             click.echo(f"  WARNING: {len(failed_verifications)} edit(s) could not be verified")
             for failed_v_res in failed_verifications:
                 click.echo(f"    - {failed_v_res.edit_type}: {failed_v_res.mismatch_reason}")
+            await translation.restore_map_backup(map_flag)
             return False
     else:
         click.echo("  WARNING: Map content trait unavailable, skipping verification")

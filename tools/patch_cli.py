@@ -20,8 +20,8 @@ def main() -> None:
     content = apply_substitution(
         content,
         "add_edit",
-        r"(\s+success, error = virtual_state\.add_edit\(edit\)\n\s+if success:\n\s+)(click\.echo\(\".*?\"\))",
-        r"\1context.save_virtual_state(device_id)\n        \2",
+        r"(\s+success, error = await virtual_state\.add_edit\(edit\)\n\s+if success:\n(?:\s+await context\.save_virtual_state\(device_id\)\n)?\s+)(click\.echo\(\".*?\"\))",
+        r"\1\2",
     )
     content = apply_substitution(
         content,
@@ -38,14 +38,14 @@ def main() -> None:
     content = apply_substitution(
         content,
         "sync_clear",
-        r"(\s+virtual_state\.clear\(\)\n\s+else:\n\s+click\.echo\(\"Sync failed or partially completed\.\"\))",
-        r"\n        virtual_state.clear()\n        context.save_virtual_state(device_id)\n    else:\n        click.echo(\"Sync failed or partially completed.\")",
+        r"(\s+await virtual_state\.clear\(\)\n\s+await context\.save_virtual_state\(device_id\)\n\s+else:\n\s+click\.echo\(\"Sync failed or partially completed\.\"\))",
+        r"\1",
     )
     content = apply_substitution(
         content,
         "map_edit_clear",
-        r"(\s+virtual_state\.clear\(\)\n\s+)(click\.echo\(\"Cleared all pending edits\"\))",
-        r"\1context.save_virtual_state(device_id)\n    \2",
+        r"(\s+await virtual_state\.clear\(\)\n\s+await context\.save_virtual_state\(device_id\)\n\s+click\.echo\(\"Cleared all pending edits\"\))",
+        r"\1",
     )
 
     with open(CLI_PATH, "w") as f:

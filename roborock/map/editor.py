@@ -16,6 +16,7 @@ import hashlib
 import json
 import logging
 import pathlib
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -75,7 +76,7 @@ class EditObject(ABC):
 
     edit_type: EditType
     status: EditStatus = field(default=EditStatus.PENDING)
-    edit_id: str = field(default_factory=lambda: f"edit_{id(object())}")
+    edit_id: str = field(default_factory=lambda: f"edit_{uuid.uuid4().hex}")
 
     # Inverse command for rollback (populated after application)
     inverse: EditObject | None = field(default=None, repr=False)
@@ -534,16 +535,6 @@ class VirtualState:
             width = getattr(map_data.image, 'width', 0)
             height = getattr(map_data.image, 'height', 0)
             hash_parts.append(f"dims:{width}x{height}")
-        
-        # Vacuum position
-        if map_data.vacuum_position:
-            try:
-                x = float(getattr(map_data.vacuum_position, 'x', 0))
-                y = float(getattr(map_data.vacuum_position, 'y', 0))
-                hash_parts.append(f"vac:{x:.0f},{y:.0f}")
-            except (TypeError, ValueError):
-                # Skip vacuum position if values can't be converted to float
-                pass
         
         # Create hash
         hash_str = "|".join(hash_parts)

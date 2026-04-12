@@ -176,13 +176,14 @@ def test_list_devices_with_mocked_login():
                 self.user_params = user_params
 
             async def get_devices(self):
-                from roborock.devices.device import RoborockDevice
                 from roborock.data import DeviceData, ProductData
+                from types import SimpleNamespace
 
                 product_data = ProductData.from_dict(A245_PRODUCT_DATA)
                 device_data = DeviceData.from_dict(A245_DEVICE_DATA)
 
-                return []
+                # Minimal object surface needed by list-devices flow.
+                return [SimpleNamespace(device_info=device_data, product=product_data)]
 
         with (
             patch("roborock.cli.RoborockContext.roborock_file", roborock_file),
