@@ -1,0 +1,31 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "f45cfe897c24",
+  "strategy": "manual-commit",
+  "branch": "feat/local-map-editor",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "roborock/devices/device_manager.py",
+    "roborock/map/editor.py",
+    "roborock/map/verifier.py",
+    "roborock/web_api.py",
+    "tests/devices/traits/b01/q7/test_init.py",
+    "tools/patch_cli.py",
+    "tools/patch_editor.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f4/5cfe897c24/0/metadata.json",
+      "transcript": "/f4/5cfe897c24/0/full.jsonl",
+      "content_hash": "/f4/5cfe897c24/0/content_hash.txt",
+      "prompt": "/f4/5cfe897c24/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 11798341,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9969678,
+    "output_tokens": 39999,
+    "api_call_count": 110
+  }
+}
