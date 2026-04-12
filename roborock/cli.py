@@ -1338,6 +1338,114 @@ async def q10_set_fan_level(ctx: click.Context, device_id: str, level: str) -> N
 
 
 # =============================================================================
+# Map Editor Helpers
+# =============================================================================
+
+def _generate_preview(map_data, virtual_state, transformer, output_path: str = "temp_preview.png") -> str | None:
+    """Generate a preview image with edits overlaid in red."""
+    try:
+        from PIL import Image, ImageDraw
+        from roborock.map.geometry import Point
+        
+        # Get base map image if available
+        if hasattr(map_data, 'image') and map_data.image:
+            img = map_data.image.copy()
+        else:
+            # Create blank image from dimensions
+            width = getattr(map_data, 'width', 800)
+            height = getattr(map_data, 'height', 600)
+            img = Image.new('RGB', (width, height), color=(240, 240, 240))
+        
+        draw = ImageDraw.Draw(img)
+        
+        # Draw each pending edit in red
+        for edit in virtual_state.pending_edits:
+            if edit.edit_type.value == "split_room":
+                # Draw split line in red
+                p1 = transformer.robot_to_image(Point(edit.x1, edit.y1))
+                p2 = transformer.robot_to_image(Point(edit.x2, edit.y2))
+                draw.line([(int(p1.x), int(p1.y)), (int(p2.x), int(p2.y))], fill=(255, 0, 0), width=3)
+            elif edit.edit_type.value in ["virtual_wall", "no_go_zone"]:
+                # Draw virtual walls/no-go zones in red
+                p1 = transformer.robot_to_image(Point(edit.x1, edit.y1))
+                p2 = transformer.robot_to_image(Point(edit.x2, edit.y2))
+                if edit.edit_type.value == "virtual_wall":
+                    draw.line([(int(p1.x), int(p1.y)), (int(p2.x), int(p2.y))], fill=(255, 0, 0), width=3)
+                else:
+                    # No-go zone - draw rectangle
+                    draw.rectangle([(int(p1.x), int(p1.y)), (int(p2.x), int(p2.y))], outline=(255, 0, 0), width=3)
+        
+        img.save(output_path)
+        return output_path
+    except Exception as e:
+        click.echo(f"Warning: Could not generate preview: {e}")
+        return None
+
+
+async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
+    """Execute virtual state edits on the device with verification."""
+    from roborock.map import MapVerifier, TranslationLayer
+    from roborock.map.editor import EditStatus
+    from roborock.devices.traits.v1.command import CommandTrait
+    
+    click.echo("\nExecuting edit...")
+    
+    # Get command trait from device
+    if not device.v1_properties:
+        click.echo("ERROR: Device does not support V1 protocol")
+        return False
+    
+    # Try to get command trait
+    command_trait = None
+    if hasattr(device.v1_properties, 'command'):
+        command_trait = device.v1_properties.command
+    
+    if not command_trait:
+        click.echo("ERROR: Device does not have command trait")
+        return False
+    
+    # Create translation layer with proper arguments
+    translation = TranslationLayer(command_trait=command_trait, protocol="v1")
+    
+    # Execute edits
+    results = await translation.execute_edits(virtual_state, map_flag)
+    
+    if not results:
+        click.echo("ERROR: No edits were executed")
+        return False
+    
+    # Check if all edits succeeded
+    failed_results = [r for r in results if not r.success]
+    if failed_results:
+        click.echo(f"ERROR: {len(failed_results)} edit(s) failed:")
+        for r in failed_results:
+            click.echo(f"  - {r.edit.edit_type.name}: {r.error}")
+        return False
+    
+    click.echo(f"  Translation layer completed: {len(results)} edit(s)")
+    
+    # Verify the edit was applied
+    click.echo("\nVerifying edit was applied...")
+    verifier = MapVerifier(map_content_trait=device.v1_properties.map_content)
+    
+    verification_results = await verifier.verify_edits(virtual_state)
+    
+    all_verified = all(r.verified for r in verification_results)
+    if all_verified:
+        click.echo("  SUCCESS: All edits verified on device")
+        # Mark edits as synced in virtual state
+        for edit in virtual_state.pending_edits:
+            edit.status = EditStatus.SYNCED
+        return True
+    else:
+        failed_verifications = [r for r in verification_results if not r.verified]
+        click.echo(f"  WARNING: {len(failed_verifications)} edit(s) could not be verified")
+        for r in failed_verifications:
+            click.echo(f"    - {r.edit_type}: {r.mismatch_reason}")
+        return False
+
+
+# =============================================================================
 # Map Editor Commands
 # =============================================================================
 
@@ -1347,12 +1455,15 @@ async def q10_set_fan_level(ctx: click.Context, device_id: str, level: str) -> N
 @click.option("--room", required=True, help="Room name to split")
 @click.option("--direction", type=click.Choice(["vertical", "horizontal"]), default="vertical")
 @click.option("--ratio", type=float, default=0.5, help="Split position (0.0-1.0)")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
 @click.pass_context
 @async_command
-async def split_room(ctx, device_id: str, room: str, direction: str, ratio: float):
+async def split_room(ctx, device_id: str, room: str, direction: str, ratio: float, apply: bool, preview: bool):
     """Split a room into two segments."""
     from roborock.map import (
         CoordinateTransformer,
+        MapVerifier,
         SplitRoomEdit,
         TranslationLayer,
         VirtualState,
@@ -1428,16 +1539,27 @@ async def split_room(ctx, device_id: str, room: str, direction: str, ratio: floa
     click.echo(f"  Line: ({edit.x1:.0f}, {edit.y1:.0f}) -> ({edit.x2:.0f}, {edit.y2:.0f})")
     click.echo(f"  Edit ID: {edit.edit_id}")
 
-    # Preview mode - don't execute yet
-    click.echo("\nUse --apply flag to execute (not yet implemented)")
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
 
 
 @session.command()
 @click.option("--device_id", required=True, help="Device ID")
 @click.option("--rooms", required=True, help="Comma-separated room names to merge")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
 @click.pass_context
 @async_command
-async def merge_rooms(ctx, device_id: str, rooms: str):
+async def merge_rooms(ctx, device_id: str, rooms: str, apply: bool, preview: bool):
     """Merge multiple rooms into one."""
     from roborock.map import (
         CoordinateTransformer,
@@ -1490,14 +1612,28 @@ async def merge_rooms(ctx, device_id: str, rooms: str):
     click.echo(f"  Segment IDs: {segment_ids}")
     click.echo(f"  Edit ID: {edit.edit_id}")
 
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
+
 
 @session.command()
 @click.option("--device_id", required=True, help="Device ID")
 @click.option("--room", required=True, help="Room name")
 @click.option("--new-name", required=True, help="New room name")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
 @click.pass_context
 @async_command
-async def rename_room(ctx, device_id: str, room: str, new_name: str):
+async def rename_room(ctx, device_id: str, room: str, new_name: str, apply: bool, preview: bool):
     """Rename a room."""
     from roborock.map import (
         CoordinateTransformer,
@@ -1550,6 +1686,19 @@ async def rename_room(ctx, device_id: str, room: str, new_name: str):
         return
 
     click.echo(f"Created rename edit: '{old_name}' -> '{new_name}'")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
 
 
 @session.command()
@@ -1558,9 +1707,11 @@ async def rename_room(ctx, device_id: str, room: str, new_name: str):
 @click.option("--y1", type=int, required=True, help="Wall start Y (mm)")
 @click.option("--x2", type=int, required=True, help="Wall end X (mm)")
 @click.option("--y2", type=int, required=True, help="Wall end Y (mm)")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
 @click.pass_context
 @async_command
-async def add_virtual_wall(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int):
+async def add_virtual_wall(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int, apply: bool, preview: bool):
     """Add a virtual wall."""
     from roborock.map import (
         CoordinateTransformer,
@@ -1595,6 +1746,19 @@ async def add_virtual_wall(ctx, device_id: str, x1: int, y1: int, x2: int, y2: i
         return
 
     click.echo(f"Created virtual wall edit: ({x1}, {y1}) -> ({x2}, {y2})")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
 
 
 @session.command()
@@ -1603,9 +1767,11 @@ async def add_virtual_wall(ctx, device_id: str, x1: int, y1: int, x2: int, y2: i
 @click.option("--y1", type=int, required=True, help="Zone min Y (mm)")
 @click.option("--x2", type=int, required=True, help="Zone max X (mm)")
 @click.option("--y2", type=int, required=True, help="Zone max Y (mm)")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
 @click.pass_context
 @async_command
-async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int):
+async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int, apply: bool, preview: bool):
     """Add a no-go zone."""
     from roborock.map import (
         CoordinateTransformer,
@@ -1640,6 +1806,19 @@ async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int
         return
 
     click.echo(f"Created no-go zone edit: ({x1}, {y1}) -> ({x2}, {y2})")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
 
 
 def main():
