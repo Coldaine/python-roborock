@@ -1,0 +1,26 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "caa6880bc729",
+  "strategy": "manual-commit",
+  "branch": "feat/local-map-editor",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "roborock/map/editor.py",
+    "roborock/map/verifier.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ca/a6880bc729/0/metadata.json",
+      "transcript": "/ca/a6880bc729/0/full.jsonl",
+      "content_hash": "/ca/a6880bc729/0/content_hash.txt",
+      "prompt": "/ca/a6880bc729/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 11798341,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9969678,
+    "output_tokens": 39999,
+    "api_call_count": 110
+  }
+}
