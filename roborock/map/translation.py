@@ -10,6 +10,7 @@ It handles:
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -454,15 +455,28 @@ class TranslationLayer:
         """Bind command parameters to a specific map flag.
 
         This ensures commands apply to the correct floor in multi-map setups.
+
+        This is a pure function - it does not mutate the input params.
         """
+        # Create a deep copy to avoid mutating the original input
+        params = copy.deepcopy(params)
+
         # Different protocols handle map binding differently
         if isinstance(params, dict):
-            params["map_flag"] = map_flag
+            # Prevent double-wrapping by checking if already bound
+            if params.get("map_flag") != map_flag:
+                params["map_flag"] = map_flag
         elif isinstance(params, list):
-            # For list params, we may need to wrap in a dict or prepend
+            # For list params, prepend the map_flag
             # Prevent double-wrapping if map_flag is already prepended
             if not params or params[0] != map_flag:
                 params = [map_flag] + params
+        # For other types (primitives, None, etc.), return as-is with map_flag wrapped in a list
+        elif params is not None:
+            params = [map_flag, params]
+        else:
+            params = [map_flag]
+
         return params
 
     async def create_map_backup(self, map_flag: int | None = None) -> bool:
