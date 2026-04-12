@@ -118,7 +118,7 @@ async def test_two_stage_sync_with_remapping(mock_command_trait, mock_map_conten
 
 
 @pytest.mark.asyncio
-async def test_repopulate_no_map_content(mock_command_trait, base_map_data):
+async def test_repopulate_no_map_content(mock_command_trait):
     """Test remapping behavior when MapContentTrait is missing."""
     layer = TranslationLayer(mock_command_trait, None, protocol="v1")
     state = MagicMock()

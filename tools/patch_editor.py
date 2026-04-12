@@ -1,10 +1,43 @@
 import re
-import os
+from pathlib import Path
 
-with open("roborock/map/editor.py", "r") as f:
-    content = f.read()
 
-from_dict_code = """
+REPO_ROOT = Path(__file__).resolve().parents[1]
+EDITOR_PATH = REPO_ROOT / "roborock" / "map" / "editor.py"
+
+
+def replace_once(content: str, needle: str, replacement: str, name: str) -> str:
+    if needle not in content:
+        raise RuntimeError(f"{name} target not found")
+    return content.replace(needle, replacement, 1)
+
+
+def sub_once(content: str, pattern: str, replacement: str, name: str, flags: int = 0) -> str:
+    updated, count = re.subn(pattern, replacement, content, count=1, flags=flags)
+    if count == 0:
+        raise RuntimeError(f"{name} pattern did not match")
+    return updated
+
+
+def ensure_locked_async_method(content: str, method_name: str) -> str:
+    pattern = rf"(    async def {method_name}\(.*?:\n)(.*?)(?=\n    (?:async )?def |\Z)"
+
+    def repl(match: re.Match[str]) -> str:
+        prefix = match.group(1)
+        body = match.group(2)
+        if "async with self._lock:" in body:
+            return match.group(0)
+        indented = "\n".join(["        " + line if line else line for line in body.splitlines()])
+        return prefix + "        async with self._lock:\n" + indented + "\n"
+
+    return sub_once(content, pattern, repl, f"{method_name}_lock_wrap", flags=re.DOTALL)
+
+
+def main() -> None:
+    with open(EDITOR_PATH) as f:
+        content = f.read()
+
+    from_dict_code = """
     @classmethod
     def from_dict(cls, data: dict) -> 'EditObject':
         \"\"\"Create edit from dictionary.\"\"\"
@@ -36,37 +69,28 @@ from_dict_code = """
         return obj
 """
 
-to_dict_orig = """        return {
+    to_dict_orig = """        return {
             "edit_id": self.edit_id,
             "edit_type": self.edit_type.name,
             "status": self.status.name,
         }"""
-to_dict_new = to_dict_orig + "\n" + from_dict_code
+    to_dict_new = to_dict_orig + "\n" + from_dict_code
+    content = replace_once(content, to_dict_orig, to_dict_new, "to_dict_from_dict_injection")
 
-content = content.replace(to_dict_orig, to_dict_new)
+    content = replace_once(content, "import logging\n", "import logging\nimport json\nimport pathlib\n", "imports")
 
-# Add imports
-content = content.replace("import logging\n", "import logging\nimport threading\nimport json\nimport pathlib\n")
+    if "self._lock" not in content:
+        content = replace_once(
+            content,
+            "        self._redo_stack: list[EditObject] = []\n",
+            "        self._redo_stack: list[EditObject] = []\n        self._lock = asyncio.Lock()\n",
+            "async_lock",
+        )
 
-# Add lock
-content = content.replace("        self._redo_stack: list[EditObject] = []\n", "        self._redo_stack: list[EditObject] = []\n        self._lock = threading.Lock()\n")
+    for method in ["add_edit", "undo", "redo", "clear"]:
+        content = ensure_locked_async_method(content, method)
 
-# Thread safety wrappers
-for method in ["add_edit", "undo", "redo", "clear"]:
-    if f"def {method}(self" in content:
-        pattern = r"(    def " + method + r"\(.*?:\n)(.*?)(?=\n    def |\Z)"
-        def repl(match):
-            prefix = match.group(1)
-            body = match.group(2)
-            if "with self._lock:" in body:
-                return match.group(0)
-            indented_body = "\n".join(["        " + line if line else line for line in body.split("\n")])
-            return prefix + "        with self._lock:\n" + indented_body
-        
-        content = re.sub(pattern, repl, content, count=1, flags=re.DOTALL)
-
-# Add save and load methods
-persistence_code = """
+    persistence_code = """
     def save(self, filepath: str | pathlib.Path) -> None:
         \"\"\"Save pending edits to a JSON file.\"\"\"
         with self._lock:
@@ -97,9 +121,12 @@ persistence_code = """
                 except Exception as e:
                     _LOGGER.error(f"Failed to parse virtual state file: {e}")
 """
+    if "def save(self" not in content:
+        content += persistence_code
 
-if "def save(self" not in content:
-    content = content + persistence_code
+    with open(EDITOR_PATH, "w") as f:
+        f.write(content)
 
-with open("roborock/map/editor.py", "w") as f:
-    f.write(content)
+
+if __name__ == "__main__":
+    main()

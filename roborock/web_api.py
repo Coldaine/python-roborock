@@ -752,6 +752,10 @@ class UserWebApiClient:
         """Fetch routines (scenes) for a specific device."""
         return await self._web_api.get_scenes(self._user_data, device_id)
 
+    async def get_rooms(self, home_id: int | None = None) -> list[HomeDataRoom]:
+        """Fetch rooms using the API client."""
+        return await self._web_api.get_rooms(self._user_data, home_id=home_id)
+
     async def execute_routine(self, scene_id: int) -> None:
         """Execute a specific routine (scene) by its ID."""
         await self._web_api.execute_scene(self._user_data, scene_id)

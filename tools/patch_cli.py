@@ -1,42 +1,56 @@
 import re
+from pathlib import Path
 
-with open("roborock/cli.py", "r") as f:
-    content = f.read()
 
-# Replace add_edit
-content = re.sub(
-    r"(\s+success, error = virtual_state\.add_edit\(edit\)\n\s+if success:\n\s+)(click\.echo\(\".*?\"\))",
-    r"\1context.save_virtual_state(device_id)\n        \2",
-    content
-)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CLI_PATH = REPO_ROOT / "roborock" / "cli.py"
 
-# Replace undo
-content = re.sub(
-    r"(\s+edit = virtual_state\.undo\(\)\n\s+)(click\.echo\(\"Undone: \{edit\.edit_type\.name\}\"\))",
-    r"\1context.save_virtual_state(device_id)\n    \2",
-    content
-)
 
-# Replace redo
-content = re.sub(
-    r"(\s+edit = virtual_state\.redo\(\)\n\s+)(click\.echo\(\"Redone: \{edit\.edit_type\.name\}\"\))",
-    r"\1context.save_virtual_state(device_id)\n    \2",
-    content
-)
+def apply_substitution(content: str, name: str, pattern: str, replacement: str) -> str:
+    updated, count = re.subn(pattern, replacement, content)
+    if count == 0:
+        raise RuntimeError(f"{name} pattern did not match")
+    return updated
 
-# Replace clear in sync
-content = re.sub(
-    r"(\s+virtual_state\.clear\(\)\n\s+else:\n\s+click\.echo\(\"Sync failed or partially completed\.\"\))",
-    r"\n        virtual_state.clear()\n        context.save_virtual_state(device_id)\n    else:\n        click.echo(\"Sync failed or partially completed.\")",
-    content
-)
 
-# Replace clear in map_edit_clear
-content = re.sub(
-    r"(\s+virtual_state\.clear\(\)\n\s+)(click\.echo\(\"Cleared all pending edits\"\))",
-    r"\1context.save_virtual_state(device_id)\n    \2",
-    content
-)
+def main() -> None:
+    with open(CLI_PATH) as f:
+        content = f.read()
 
-with open("roborock/cli.py", "w") as f:
-    f.write(content)
+    content = apply_substitution(
+        content,
+        "add_edit",
+        r"(\s+success, error = virtual_state\.add_edit\(edit\)\n\s+if success:\n\s+)(click\.echo\(\".*?\"\))",
+        r"\1context.save_virtual_state(device_id)\n        \2",
+    )
+    content = apply_substitution(
+        content,
+        "undo",
+        r"(\s+edit = virtual_state\.undo\(\)\n\s+)(click\.echo\(\"Undone: \{edit\.edit_type\.name\}\"\))",
+        r"\1context.save_virtual_state(device_id)\n    \2",
+    )
+    content = apply_substitution(
+        content,
+        "redo",
+        r"(\s+edit = virtual_state\.redo\(\)\n\s+)(click\.echo\(\"Redone: \{edit\.edit_type\.name\}\"\))",
+        r"\1context.save_virtual_state(device_id)\n    \2",
+    )
+    content = apply_substitution(
+        content,
+        "sync_clear",
+        r"(\s+virtual_state\.clear\(\)\n\s+else:\n\s+click\.echo\(\"Sync failed or partially completed\.\"\))",
+        r"\n        virtual_state.clear()\n        context.save_virtual_state(device_id)\n    else:\n        click.echo(\"Sync failed or partially completed.\")",
+    )
+    content = apply_substitution(
+        content,
+        "map_edit_clear",
+        r"(\s+virtual_state\.clear\(\)\n\s+)(click\.echo\(\"Cleared all pending edits\"\))",
+        r"\1context.save_virtual_state(device_id)\n    \2",
+    )
+
+    with open(CLI_PATH, "w") as f:
+        f.write(content)
+
+
+if __name__ == "__main__":
+    main()

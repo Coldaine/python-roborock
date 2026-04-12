@@ -123,6 +123,7 @@ class YXFanLevel(RoborockModeEnum):
     CLOSE = "close", 0
     QUIET = "quiet", 1
     NORMAL = "normal", 2
+    BALANCED = "normal", 2
     STRONG = "strong", 3
     MAX = "max", 4
     SUPER = "super", 8
@@ -152,6 +153,7 @@ class YXRoomMaterial(RoborockModeEnum):
 class YXCleanType(RoborockModeEnum):
     UNKNOWN = "unknown", -1
     BOTH_WORK = "bothwork", 1
+    VAC_AND_MOP = "bothwork", 1
     ONLY_SWEEP = "onlysweep", 2
     ONLY_MOP = "onlymop", 3
 

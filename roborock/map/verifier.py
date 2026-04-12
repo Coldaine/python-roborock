@@ -10,15 +10,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from .geometry import GRID_SCALE_FACTOR, Point
+from .geometry import Point
 
 if TYPE_CHECKING:
     from vacuum_map_parser_base.map_data import MapData
 
-    from .editor import VirtualState
+    from .editor import (
+        MergeRoomsEdit,
+        NoGoZoneEdit,
+        RenameRoomEdit,
+        SplitRoomEdit,
+        VirtualState,
+        VirtualWallEdit,
+    )
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -96,11 +104,12 @@ class MapVerifier:
             _LOGGER.debug("No edits to verify")
             return results
 
-        start_time = asyncio.get_event_loop().time()
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
         attempt = 0
 
         while attempt < self._max_retries:
-            elapsed = asyncio.get_event_loop().time() - start_time
+            elapsed = loop.time() - start_time
             if elapsed > self._timeout:
                 _LOGGER.warning(f"Verification timeout after {elapsed:.1f}s")
                 break

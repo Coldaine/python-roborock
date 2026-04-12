@@ -51,11 +51,6 @@ async def test_q7_api_query_values(
     assert result is not None
     assert result.status == WorkStatusMapping.WAITING_FOR_ORDERS
     # wind might be mapped to SCWindMapping.STANDARD (2)
-    # let's verify checking the prop definition in B01Props
-    # wind: SCWindMapping | None = None
-    # SCWindMapping.STANDARD is 2 ('balanced')
-    from roborock.data.b01_q7 import SCWindMapping
-
     assert result.wind == SCWindMapping.STANDARD
 
     assert len(fake_channel.published_messages) == 1

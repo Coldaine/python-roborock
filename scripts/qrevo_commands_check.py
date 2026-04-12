@@ -10,7 +10,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 # Add the project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from roborock.cli import RoborockContext, cli
 from roborock.data import UserData

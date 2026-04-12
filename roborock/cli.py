@@ -944,6 +944,16 @@ def _parse_b01_q10_command(cmd: str) -> B01_Q10_DP:
     raise RoborockException(f"Invalid command {cmd} for B01_Q10 device")
 
 
+def _parse_command_params(params: str | None) -> Any:
+    """Parse JSON params for command payloads."""
+    if params is None:
+        return None
+    try:
+        return json.loads(params)
+    except json.JSONDecodeError as err:
+        raise RoborockException(f"Invalid JSON for --params: {err.msg}") from err
+
+
 @click.command()
 @click.option("--device_id", required=True)
 @click.option("--cmd", required=True)
@@ -954,15 +964,16 @@ async def command(ctx, cmd, device_id, params):
     context: RoborockContext = ctx.obj
     device_manager = await context.get_device_manager()
     device = await device_manager.get_device(device_id)
+    parsed_params = _parse_command_params(params)
     if device.v1_properties is not None:
         command_trait: Trait = device.v1_properties.command
-        result = await command_trait.send(cmd, json.loads(params) if params is not None else None)
+        result = await command_trait.send(cmd, parsed_params)
         if result:
             click.echo(dump_json(result))
     elif device.b01_q10_properties is not None:
         cmd_value = _parse_b01_q10_command(cmd)
         command_trait: Trait = device.b01_q10_properties.command
-        await command_trait.send(cmd_value, json.loads(params) if params is not None else None)
+        await command_trait.send(cmd_value, parsed_params)
         click.echo("Command sent successfully; Enable debug logging (-d) to see responses.")
         # Q10 commands don't have a specific time to respond, so wait a bit and log
         await asyncio.sleep(5)
@@ -1482,7 +1493,9 @@ async def q10_set_clean_mode(ctx: click.Context, device_id: str, mode: str) -> N
             "mop": YXCleanType.ONLY_MOP,
             "onlymop": YXCleanType.ONLY_MOP,
         }
-        clean_mode = mode_aliases[mode.lower()]
+        clean_mode = mode_aliases.get(mode.lower())
+        if clean_mode is None:
+            raise RoborockException(f"Unsupported clean mode: {mode}")
         await trait.set_clean_mode(clean_mode)
         click.echo(f"Clean mode set to {mode}")
     except RoborockUnsupportedFeature:

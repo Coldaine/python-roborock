@@ -17,7 +17,6 @@ import json
 import logging
 import pathlib
 from abc import ABC, abstractmethod
-from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
@@ -30,6 +29,16 @@ if TYPE_CHECKING:
     from .geometry import CoordinateTransformer
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _read_json(path: pathlib.Path) -> dict[str, Any]:
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _write_json(path: pathlib.Path, data: dict[str, Any]) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 
 class EditType(Enum):
@@ -777,14 +786,13 @@ class VirtualState:
                 "original_mop_zones": self._original_mop_zones,
                 "map_flag": self._map_flag,
                 "map_hash": self._map_hash,
-                "timestamp": datetime.datetime.now().isoformat(),
+                "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
             }
             
             # Ensure parent directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
             
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
+            await asyncio.to_thread(_write_json, path, data)
             
             _LOGGER.debug(f"Saved virtual state to {path} with {len(self._edit_stack)} edits")
 
@@ -806,8 +814,7 @@ class VirtualState:
         if not path.exists():
             raise FileNotFoundError(f"Virtual state file not found: {path}")
         
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = await asyncio.to_thread(_read_json, path)
         
         # Create state with map_data
         from .geometry import CoordinateTransformer
@@ -824,8 +831,8 @@ class VirtualState:
                 "The map may have changed since the state was saved."
             )
             raise ValueError(
-                f"Map has changed since state was saved (hash mismatch). "
-                f"Saved edits may no longer be valid."
+                "Map has changed since state was saved (hash mismatch). "
+                "Saved edits may no longer be valid."
             )
         
         saved_map_flag = data.get("map_flag")
@@ -856,16 +863,15 @@ class VirtualState:
             return
 
         async with self._lock:
-            with open(path, "r", encoding="utf-8") as f:
-                try:
-                    data = json.load(f)
-                    self._edit_stack.clear()
-                    self._redo_stack.clear()
-                    for edit_data in data.get("edits", []):
-                        try:
-                            edit = EditObject.from_dict(edit_data)
-                            self._edit_stack.append(edit)
-                        except Exception as e:
-                            _LOGGER.error(f"Failed to load edit: {e}")
-                except Exception as e:
-                    _LOGGER.error(f"Failed to parse virtual state file: {e}")
+            try:
+                data = await asyncio.to_thread(_read_json, path)
+                self._edit_stack.clear()
+                self._redo_stack.clear()
+                for edit_data in data.get("edits", []):
+                    try:
+                        edit = EditObject.from_dict(edit_data)
+                        self._edit_stack.append(edit)
+                    except Exception as e:
+                        _LOGGER.error(f"Failed to load edit: {e}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to parse virtual state file: {e}")

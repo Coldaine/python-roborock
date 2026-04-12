@@ -116,7 +116,7 @@ async def test_status_trait_refresh(
     # Mock the response to refresh
     # battery (122) = 100
     # status (121) = 8 (CHARGING_STATE)
-    # fun_level (123) = 2 (NORMAL)
+    # fan_level (123) = 2 (NORMAL)
     message = build_message(TESTDATA_DP_REQUEST_DPS)
 
     # Send a refresh command
