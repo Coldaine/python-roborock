@@ -202,7 +202,7 @@ class TestVirtualState:
         assert state.can_redo is False
         assert len(state) == 0
 
-    def test_add_edit_success(self):
+    async def test_add_edit_success(self):
         """Successfully adding an edit."""
         map_data = MagicMock()
         map_data.rooms = None
@@ -211,14 +211,14 @@ class TestVirtualState:
         state = VirtualState(map_data)
         edit = VirtualWallEdit(x1=100, y1=100, x2=200, y2=200)
 
-        success, error = state.add_edit(edit)
+        success, error = await state.add_edit(edit)
         assert success is True
         assert error is None
         assert len(state) == 1
         assert state.has_pending_edits is True
         assert state.can_undo is True
 
-    def test_add_edit_validation_failure(self):
+    async def test_add_edit_validation_failure(self):
         """Adding an invalid edit should fail."""
         map_data = MagicMock()
         map_data.charger = None
@@ -226,12 +226,12 @@ class TestVirtualState:
         state = VirtualState(map_data)
         edit = VirtualWallEdit(x1=100, y1=100, x2=100, y2=100)  # Zero length
 
-        success, error = state.add_edit(edit)
+        success, error = await state.add_edit(edit)
         assert success is False
         assert error is not None
         assert len(state) == 0
 
-    def test_undo_redo(self):
+    async def test_undo_redo(self):
         """Undo and redo functionality."""
         map_data = MagicMock()
         map_data.rooms = None
@@ -239,56 +239,56 @@ class TestVirtualState:
 
         state = VirtualState(map_data)
         edit = VirtualWallEdit(x1=100, y1=100, x2=200, y2=200)
-        state.add_edit(edit)
+        await state.add_edit(edit)
 
         # Undo
-        undone = state.undo()
+        undone = await state.undo()
         assert undone is not None
         assert undone.edit_id == edit.edit_id
         assert len(state) == 0
         assert state.can_redo is True
 
         # Redo
-        redone = state.redo()
+        redone = await state.redo()
         assert redone is not None
         assert len(state) == 1
         assert state.can_redo is False
 
-    def test_undo_empty_stack(self):
+    async def test_undo_empty_stack(self):
         """Undo on empty stack should return None."""
         state = VirtualState()
-        assert state.undo() is None
+        assert await state.undo() is None
 
-    def test_redo_empty_stack(self):
+    async def test_redo_empty_stack(self):
         """Redo on empty stack should return None."""
         state = VirtualState()
-        assert state.redo() is None
+        assert await state.redo() is None
 
-    def test_clear(self):
+    async def test_clear(self):
         """Clear should reset all edits."""
         map_data = MagicMock()
         map_data.rooms = None
         map_data.charger = None
 
         state = VirtualState(map_data)
-        state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
-        state.add_edit(NoGoZoneEdit(x1=0, y1=0, x2=100, y2=100))
+        await state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
+        await state.add_edit(NoGoZoneEdit(x1=0, y1=0, x2=100, y2=100))
 
         assert len(state) == 2
-        state.clear()
+        await state.clear()
         assert len(state) == 0
         assert state.has_pending_edits is False
 
-    def test_get_edits_by_type(self):
+    async def test_get_edits_by_type(self):
         """Filter edits by type."""
         map_data = MagicMock()
         map_data.rooms = None
         map_data.charger = None
 
         state = VirtualState(map_data)
-        state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
-        state.add_edit(NoGoZoneEdit(x1=0, y1=0, x2=100, y2=100))
-        state.add_edit(VirtualWallEdit(x1=300, y1=300, x2=400, y2=400))
+        await state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
+        await state.add_edit(NoGoZoneEdit(x1=0, y1=0, x2=100, y2=100))
+        await state.add_edit(VirtualWallEdit(x1=300, y1=300, x2=400, y2=400))
 
         walls = state.get_edits_by_type(EditType.VIRTUAL_WALL)
         assert len(walls) == 2
@@ -296,7 +296,7 @@ class TestVirtualState:
         zones = state.get_edits_by_type(EditType.NO_GO_ZONE)
         assert len(zones) == 1
 
-    def test_structural_vs_additive_edits(self):
+    async def test_structural_vs_additive_edits(self):
         """Correct classification of structural and additive edits."""
         map_data = MagicMock()
         # Set up room with actual coordinate values for intersection check
@@ -311,13 +311,13 @@ class TestVirtualState:
         state = VirtualState(map_data)
 
         # Structural edits
-        state.add_edit(SplitRoomEdit(segment_id=16, x1=50, y1=0, x2=50, y2=100))
-        state.add_edit(MergeRoomsEdit(segment_ids=[16, 17]))
-        state.add_edit(RenameRoomEdit(segment_id=16, new_name="Kitchen"))
+        await state.add_edit(SplitRoomEdit(segment_id=16, x1=50, y1=0, x2=50, y2=100))
+        await state.add_edit(MergeRoomsEdit(segment_ids=[16, 17]))
+        await state.add_edit(RenameRoomEdit(segment_id=16, new_name="Kitchen"))
 
         # Additive edits
-        state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
-        state.add_edit(NoGoZoneEdit(x1=0, y1=0, x2=100, y2=100))
+        await state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
+        await state.add_edit(NoGoZoneEdit(x1=0, y1=0, x2=100, y2=100))
 
         structural = state.get_structural_edits()
         assert len(structural) == 3
@@ -325,30 +325,30 @@ class TestVirtualState:
         additive = state.get_additive_edits()
         assert len(additive) == 2
 
-    def test_to_dict(self):
+    async def test_to_dict(self):
         """Serialization to dict."""
         map_data = MagicMock()
         map_data.rooms = None
         map_data.charger = None
 
         state = VirtualState(map_data)
-        state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
+        await state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
 
         data = state.to_dict()
         assert "edits" in data
         assert len(data["edits"]) == 1
 
-    def test_redo_stack_cleared_on_new_edit(self):
+    async def test_redo_stack_cleared_on_new_edit(self):
         """Adding new edit should clear redo stack."""
         map_data = MagicMock()
         map_data.rooms = None
         map_data.charger = None
 
         state = VirtualState(map_data)
-        state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
-        state.undo()
+        await state.add_edit(VirtualWallEdit(x1=100, y1=100, x2=200, y2=200))
+        await state.undo()
 
         assert state.can_redo is True
 
-        state.add_edit(NoGoZoneEdit(x1=0, y1=0, x2=100, y2=100))
+        await state.add_edit(NoGoZoneEdit(x1=0, y1=0, x2=100, y2=100))
         assert state.can_redo is False

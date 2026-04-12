@@ -65,11 +65,11 @@ async def test_two_stage_sync_with_remapping(mock_command_trait, mock_map_conten
     
     # Split room 16
     split_edit = SplitRoomEdit(segment_id=16, x1=0, y1=500, x2=1000, y2=500)
-    state.add_edit(split_edit)
-    
+    await state.add_edit(split_edit)
+
     # Rename room 16 (this should be remapped to a new ID after split)
     rename_edit = RenameRoomEdit(segment_id=16, new_name="New Kitchen", old_name="Original Room")
-    state.add_edit(rename_edit)
+    await state.add_edit(rename_edit)
     
     # 2. Setup TranslationLayer
     layer = TranslationLayer(mock_command_trait, mock_map_content, protocol="v1")

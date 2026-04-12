@@ -180,9 +180,18 @@ class RoborockContext(Cache):
         self._session_thread: threading.Thread | None = None
         self._device_manager: DeviceConnectionManager | None = None
         self._virtual_states: dict[str, Any] = {}
+        self._virtual_states_dir: Path = Path("~/.config/roborock/virtual_states/").expanduser()
 
-    def get_virtual_state(self, device_id: str, map_data: Any = None) -> Any:
-        """Get or create a VirtualState for a device with version safety."""
+    def _get_virtual_state_path(self, device_id: str) -> Path:
+        """Get the path for a device's virtual state file."""
+        return self._virtual_states_dir / f"{device_id}.json"
+
+    async def get_virtual_state(self, device_id: str, map_data: Any = None) -> Any:
+        """Get or create a VirtualState for a device with version safety.
+        
+        If a persisted state exists and map_data is provided, attempts to load it.
+        Handles stale states by clearing them and returning a fresh state.
+        """
         from roborock.map import CoordinateTransformer, VirtualState
         
         if device_id in self._virtual_states:
@@ -205,18 +214,121 @@ class RoborockContext(Cache):
                 return None
 
             transformer = CoordinateTransformer.from_map_data(map_data)
-            state = VirtualState(map_data, transformer)
-            state_file = Path(f"~/.roborock.map_edit_{device_id}.json").expanduser()
-            state.load(state_file)
+            state_file = self._get_virtual_state_path(device_id)
+            
+            # Try to load existing state
+            if state_file.exists():
+                try:
+                    state = await VirtualState.load(state_file, map_data)
+                    _LOGGER.info(f"Loaded persisted virtual state for {device_id} with {len(state)} edits")
+                except (ValueError, FileNotFoundError) as e:
+                    _LOGGER.warning(f"Could not load persisted state for {device_id}: {e}")
+                    # Create fresh state
+                    state = VirtualState(map_data, transformer)
+            else:
+                state = VirtualState(map_data, transformer)
+                
             self._virtual_states[device_id] = state
 
         return self._virtual_states[device_id]
 
-    def save_virtual_state(self, device_id: str) -> None:
-        """Save the virtual state for a device to disk."""
-        if device_id in self._virtual_states:
-            state_file = Path(f"~/.roborock.map_edit_{device_id}.json").expanduser()
-            self._virtual_states[device_id].save(state_file)
+    async def save_virtual_state(self, device_id: str) -> None:
+        """Save the virtual state for a device to disk.
+        
+        Only saves if there are pending edits.
+        """
+        if device_id not in self._virtual_states:
+            return
+            
+        state = self._virtual_states[device_id]
+        if not state.has_pending_edits:
+            return
+            
+        state_file = self._get_virtual_state_path(device_id)
+        await state.save(state_file)
+        _LOGGER.debug(f"Saved virtual state for {device_id}")
+
+    async def save_virtual_states(self) -> None:
+        """Save all virtual states to disk.
+        
+        Called on exit to persist pending edits.
+        """
+        self._virtual_states_dir.mkdir(parents=True, exist_ok=True)
+        
+        for device_id, state in self._virtual_states.items():
+            if state.has_pending_edits:
+                try:
+                    state_file = self._get_virtual_state_path(device_id)
+                    await state.save(state_file)
+                    _LOGGER.info(f"Saved virtual state for {device_id} with {len(state)} edits")
+                except Exception as e:
+                    _LOGGER.error(f"Failed to save virtual state for {device_id}: {e}")
+
+    def load_virtual_states(self, available_devices: list[str] | None = None) -> dict[str, dict]:
+        """Load and validate virtual states from disk on startup.
+        
+        Args:
+            available_devices: Optional list of currently available device IDs.
+                              States for unavailable devices are reported as stale.
+                              
+        Returns:
+            Dictionary mapping device_id to load status info:
+            - "loaded": bool - Whether state was successfully loaded
+            - "edits": int - Number of edits in loaded state (0 if not loaded)
+            - "stale": bool - True if device not in available_devices
+            - "error": str - Error message if loading failed
+        """
+        import json
+        
+        results: dict[str, dict] = {}
+        
+        if not self._virtual_states_dir.exists():
+            return results
+        
+        for state_file in self._virtual_states_dir.glob("*.json"):
+            device_id = state_file.stem
+            
+            # Check if device is available
+            if available_devices is not None and device_id not in available_devices:
+                results[device_id] = {
+                    "loaded": False,
+                    "edits": 0,
+                    "stale": True,
+                    "error": "Device not currently available"
+                }
+                continue
+            
+            # Just check file is valid JSON and has expected structure
+            try:
+                with open(state_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                edit_count = len(data.get("edits", []))
+                map_hash = data.get("map_hash")
+                map_flag = data.get("map_flag")
+                
+                results[device_id] = {
+                    "loaded": True,
+                    "edits": edit_count,
+                    "stale": False,
+                    "map_hash": map_hash,
+                    "map_flag": map_flag,
+                    "timestamp": data.get("timestamp"),
+                    "error": None
+                }
+                
+                _LOGGER.info(f"Found persisted state for {device_id}: {edit_count} edits")
+                
+            except Exception as e:
+                results[device_id] = {
+                    "loaded": False,
+                    "edits": 0,
+                    "stale": False,
+                    "error": str(e)
+                }
+                _LOGGER.error(f"Failed to validate state file for {device_id}: {e}")
+        
+        return results
 
     def reload(self):
         if self.roborock_file.is_file():
@@ -293,6 +405,9 @@ class RoborockContext(Cache):
 
     async def cleanup(self):
         """Clean up resources (mainly for session mode)."""
+        # Save virtual states before cleanup
+        await self.save_virtual_states()
+        
         if self._device_manager:
             await self._device_manager.close()
             self._device_manager = None
@@ -1602,11 +1717,11 @@ async def split_room(ctx, device_id: str, room: str, direction: str, ratio: floa
     split_line = calculate_split_line(room_bbox, direction, ratio)
 
     # Create virtual state and add edit
-    virtual_state = context.get_virtual_state(device_id, map_data)
+    virtual_state = await context.get_virtual_state(device_id, map_data)
     if virtual_state is None:
         click.echo("Failed to initialize virtual state")
         return
-    
+
     edit = SplitRoomEdit(
         segment_id=target_room_id,
         x1=split_line.p1.x,
@@ -1615,7 +1730,7 @@ async def split_room(ctx, device_id: str, room: str, direction: str, ratio: floa
         y2=split_line.p2.y,
     )
 
-    success, error = virtual_state.add_edit(edit)
+    success, error = await virtual_state.add_edit(edit)
     if not success:
         click.echo(f"Failed to create edit: {error}")
         return
@@ -1685,14 +1800,14 @@ async def merge_rooms(ctx, device_id: str, rooms: str, apply: bool, preview: boo
             return
 
     transformer = CoordinateTransformer.from_map_data(map_data)
-    virtual_state = context.get_virtual_state(device_id, map_data)
+    virtual_state = await context.get_virtual_state(device_id, map_data)
     if virtual_state is None:
         click.echo("Failed to initialize virtual state")
         return
-        
+
     edit = MergeRoomsEdit(segment_ids=segment_ids)
 
-    success, error = virtual_state.add_edit(edit)
+    success, error = await virtual_state.add_edit(edit)
     if not success:
         click.echo(f"Failed to create edit: {error}")
         return
@@ -1762,18 +1877,18 @@ async def rename_room(ctx, device_id: str, room: str, new_name: str, apply: bool
         return
 
     transformer = CoordinateTransformer.from_map_data(map_data)
-    virtual_state = context.get_virtual_state(device_id, map_data)
+    virtual_state = await context.get_virtual_state(device_id, map_data)
     if virtual_state is None:
         click.echo("Failed to initialize virtual state")
         return
-        
+
     edit = RenameRoomEdit(
         segment_id=target_room_id,
         new_name=new_name,
         old_name=old_name or "",
     )
 
-    success, error = virtual_state.add_edit(edit)
+    success, error = await virtual_state.add_edit(edit)
     if not success:
         click.echo(f"Failed to create edit: {error}")
         return
@@ -1829,14 +1944,14 @@ async def add_virtual_wall(ctx, device_id: str, x1: int, y1: int, x2: int, y2: i
 
     map_data = map_trait.map_data
     transformer = CoordinateTransformer.from_map_data(map_data)
-    virtual_state = context.get_virtual_state(device_id, map_data)
+    virtual_state = await context.get_virtual_state(device_id, map_data)
     if virtual_state is None:
         click.echo("Failed to initialize virtual state")
         return
 
     edit = VirtualWallEdit(x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2))
 
-    success, error = virtual_state.add_edit(edit)
+    success, error = await virtual_state.add_edit(edit)
     if not success:
         click.echo(f"Failed to create edit: {error}")
         return
@@ -1892,14 +2007,14 @@ async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int
 
     map_data = map_trait.map_data
     transformer = CoordinateTransformer.from_map_data(map_data)
-    virtual_state = context.get_virtual_state(device_id, map_data)
+    virtual_state = await context.get_virtual_state(device_id, map_data)
     if virtual_state is None:
         click.echo("Failed to initialize virtual state")
         return
 
     edit = NoGoZoneEdit(x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2))
 
-    success, error = virtual_state.add_edit(edit)
+    success, error = await virtual_state.add_edit(edit)
     if not success:
         click.echo(f"Failed to create edit: {error}")
         return
@@ -1935,7 +2050,7 @@ async def map_edit_status(ctx, device_id: str):
     )
     
     context: RoborockContext = ctx.obj
-    virtual_state = context.get_virtual_state(device_id)
+    virtual_state = await context.get_virtual_state(device_id)
 
     if not virtual_state or not virtual_state.has_pending_edits:
         click.echo("No pending edits")
@@ -1980,10 +2095,10 @@ async def map_edit_sync(ctx, device_id: str):
     success = await _execute_edit(device, virtual_state, map_flag)
     if success:
         click.echo("Sync successful. Clearing pending edits.")
-        virtual_state.clear()
-        context.save_virtual_state(device_id)
+        await virtual_state.clear()
+        await context.save_virtual_state(device_id)
     else:
-        click.echo(\"Sync failed or partially completed.\")
+        click.echo("Sync failed or partially completed.")
 
 
 @session.command()
@@ -1993,13 +2108,13 @@ async def map_edit_sync(ctx, device_id: str):
 async def map_edit_undo(ctx, device_id: str):
     """Undo the last pending edit."""
     context: RoborockContext = ctx.obj
-    virtual_state = context.get_virtual_state(device_id)
+    virtual_state = await context.get_virtual_state(device_id)
 
     if not virtual_state or not virtual_state.can_undo:
         click.echo("Nothing to undo")
         return
 
-    edit = virtual_state.undo()
+    edit = await virtual_state.undo()
     click.echo(f"Undone: {edit.edit_type.name}")
 
 
@@ -2010,13 +2125,13 @@ async def map_edit_undo(ctx, device_id: str):
 async def map_edit_redo(ctx, device_id: str):
     """Redo the last undone edit."""
     context: RoborockContext = ctx.obj
-    virtual_state = context.get_virtual_state(device_id)
+    virtual_state = await context.get_virtual_state(device_id)
 
     if not virtual_state or not virtual_state.can_redo:
         click.echo("Nothing to redo")
         return
 
-    edit = virtual_state.redo()
+    edit = await virtual_state.redo()
     click.echo(f"Redone: {edit.edit_type.name}")
 
 
@@ -2027,12 +2142,12 @@ async def map_edit_redo(ctx, device_id: str):
 async def map_edit_clear(ctx, device_id: str):
     """Clear all pending edits."""
     context: RoborockContext = ctx.obj
-    virtual_state = context.get_virtual_state(device_id)
+    virtual_state = await context.get_virtual_state(device_id)
 
     if virtual_state:
-        virtual_state.clear()
-        context.save_virtual_state(device_id)
-    click.echo("Cleared all pending edits")
+        await virtual_state.clear()
+        await context.save_virtual_state(device_id)
+        click.echo("Cleared all pending edits")
     else:
         click.echo("No virtual state found for this device")
 

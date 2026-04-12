@@ -10,9 +10,11 @@ It provides:
 
 from __future__ import annotations
 
-import logging
-import threading
+import asyncio
+import datetime
+import hashlib
 import json
+import logging
 import pathlib
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -429,40 +431,123 @@ class VirtualState:
         self._transformer = transformer
         self._edit_stack: list[EditObject] = []
         self._redo_stack: list[EditObject] = []
-        self._lock = threading.Lock()
-        
+        self._lock = asyncio.Lock()
+
         # Capture original state for full physical rollback support
         self._original_room_names: dict[int, str] = {}
         self._original_walls: list[tuple[float, float, float, float]] = []
         self._original_no_go_zones: list[tuple[float, float, float, float]] = []
         self._original_mop_zones: list[tuple[float, float, float, float]] = []
 
+        # Map identifier for validation
+        self._map_flag: int | None = None
+        self._map_hash: str | None = None
+
         if map_data:
-            # Capture rooms
-            if map_data.rooms:
-                for room_id, room in map_data.rooms.items():
-                    if hasattr(room, 'name') and room.name:
-                        self._original_room_names[room_id] = room.name
+            self._capture_base_state(map_data)
 
-            # Capture walls (if exposed by parser)
-            if hasattr(map_data, 'walls') and map_data.walls:
-                for wall in map_data.walls:
-                    self._original_walls.append((wall.x1, wall.y1, wall.x2, wall.y2))
+    def _capture_base_state(self, map_data: MapData) -> None:
+        """Capture the base state from map data for rollback and persistence.
+        
+        Args:
+            map_data: The map data to capture state from.
+        """
+        # Capture map identifier
+        self._map_flag = getattr(map_data, 'map_flag', None)
+        self._map_hash = self._calculate_map_hash(map_data)
+        
+        # Capture rooms
+        if map_data.rooms:
+            for room_id, room in map_data.rooms.items():
+                if hasattr(room, 'name') and room.name:
+                    self._original_room_names[room_id] = room.name
 
-            # Capture zones (if exposed by parser)
-            if hasattr(map_data, 'no_go_areas') and map_data.no_go_areas:
-                for zone in map_data.no_go_areas:
-                    # Note: we simplify to 4-coord bbox for compatibility
-                    xs = [p.x for p in zone.points]
-                    ys = [p.y for p in zone.points]
-                    self._original_no_go_zones.append((min(xs), min(ys), max(xs), max(ys)))
+        # Capture walls (if exposed by parser)
+        if hasattr(map_data, 'walls') and map_data.walls:
+            for wall in map_data.walls:
+                self._original_walls.append((wall.x1, wall.y1, wall.x2, wall.y2))
 
-            # Capture mop zones
-            if hasattr(map_data, 'no_mop_areas') and map_data.no_mop_areas:
-                for zone in map_data.no_mop_areas:
-                    xs = [p.x for p in zone.points]
-                    ys = [p.y for p in zone.points]
-                    self._original_mop_zones.append((min(xs), min(ys), max(xs), max(ys)))
+        # Capture zones (if exposed by parser)
+        if hasattr(map_data, 'no_go_areas') and map_data.no_go_areas:
+            for zone in map_data.no_go_areas:
+                # Note: we simplify to 4-coord bbox for compatibility
+                xs = [p.x for p in zone.points]
+                ys = [p.y for p in zone.points]
+                self._original_no_go_zones.append((min(xs), min(ys), max(xs), max(ys)))
+
+        # Capture mop zones
+        if hasattr(map_data, 'no_mop_areas') and map_data.no_mop_areas:
+            for zone in map_data.no_mop_areas:
+                xs = [p.x for p in zone.points]
+                ys = [p.y for p in zone.points]
+                self._original_mop_zones.append((min(xs), min(ys), max(xs), max(ys)))
+
+    @property
+    def map_hash(self) -> str | None:
+        """Return the stored map hash for validation."""
+        return getattr(self, '_map_hash', None)
+
+    @property
+    def map_flag(self) -> int | None:
+        """Return the stored map flag for validation."""
+        return getattr(self, '_map_flag', None)
+
+    def _calculate_map_hash(self, map_data: MapData) -> str | None:
+        """Calculate a hash of the map for validation purposes.
+        
+        Args:
+            map_data: The map data to hash.
+            
+        Returns:
+            A string hash of key map characteristics, or None if map is None.
+        """
+        if map_data is None:
+            return None
+        
+        # Create a hash based on map characteristics that would change with map updates
+        hash_parts = []
+        
+        # Map flag
+        map_flag = getattr(map_data, 'map_flag', 0)
+        hash_parts.append(f"flag:{map_flag}")
+        
+        # Room IDs and names
+        if map_data.rooms:
+            room_data = []
+            for room_id in sorted(map_data.rooms.keys()):
+                room = map_data.rooms[room_id]
+                room_name = getattr(room, 'name', '')
+                room_data.append(f"{room_id}:{room_name}")
+            hash_parts.append(f"rooms:{','.join(room_data)}")
+        
+        # Image dimensions if available
+        if hasattr(map_data, 'image') and map_data.image:
+            width = getattr(map_data.image, 'width', 0)
+            height = getattr(map_data.image, 'height', 0)
+            hash_parts.append(f"dims:{width}x{height}")
+        
+        # Vacuum position
+        if map_data.vacuum_position:
+            try:
+                x = float(getattr(map_data.vacuum_position, 'x', 0))
+                y = float(getattr(map_data.vacuum_position, 'y', 0))
+                hash_parts.append(f"vac:{x:.0f},{y:.0f}")
+            except (TypeError, ValueError):
+                # Skip vacuum position if values can't be converted to float
+                pass
+        
+        # Create hash
+        hash_str = "|".join(hash_parts)
+        return hashlib.md5(hash_str.encode()).hexdigest()[:16]
+
+    async def acquire(self):
+        """Async context manager for lock acquisition.
+
+        Returns:
+            An async context manager for the internal lock.
+        """
+        return self._lock.acquire()
+
     @property
     def has_pending_edits(self) -> bool:
         """Return True if there are pending edits."""
@@ -483,79 +568,79 @@ class VirtualState:
         """Return True if redo is available."""
         return len(self._redo_stack) > 0
 
-    def add_edit(self, edit: EditObject) -> tuple[bool, str | None]:
-        with self._lock:
-                """Add an edit to the stack.
+    async def add_edit(self, edit: EditObject) -> tuple[bool, str | None]:
+        """Add an edit to the stack.
 
-                Args:
-                    edit: The edit to add.
+        Args:
+            edit: The edit to add.
 
-                Returns:
-                    Tuple of (success, error_message).
-                """
-                if self._base_map is None:
-                    return False, "No base map data available"
+        Returns:
+            Tuple of (success, error_message).
+        """
+        async with self._lock:
+            if self._base_map is None:
+                return False, "No base map data available"
 
-                # Validate the edit
-                is_valid, error = edit.validate(self._base_map)
-                if not is_valid:
-                    return False, error
+            # Validate the edit
+            is_valid, error = edit.validate(self._base_map)
+            if not is_valid:
+                return False, error
 
-                # Create inverse for rollback
-                edit.inverse = edit.create_inverse()
-                edit.status = EditStatus.APPLIED
+            # Create inverse for rollback
+            edit.inverse = edit.create_inverse()
+            edit.status = EditStatus.APPLIED
 
-                # Apply to virtual state
-                if self._transformer:
-                    edit.apply(self._base_map, self._transformer)
+            # Apply to virtual state
+            if self._transformer:
+                edit.apply(self._base_map, self._transformer)
 
-                self._edit_stack.append(edit)
-                self._redo_stack.clear()  # Clear redo stack on new edit
+            self._edit_stack.append(edit)
+            self._redo_stack.clear()  # Clear redo stack on new edit
 
-                _LOGGER.debug(f"Added edit: {edit.edit_id} ({edit.edit_type.name})")
-                return True, None
+            _LOGGER.debug(f"Added edit: {edit.edit_id} ({edit.edit_type.name})")
+            return True, None
 
-    def undo(self) -> EditObject | None:
-        with self._lock:
-                """Undo the last edit.
+    async def undo(self) -> EditObject | None:
+        """Undo the last edit.
 
-                Returns:
-                    The undone edit, or None if no edits to undo.
-                """
-                if not self._edit_stack:
-                    return None
+        Returns:
+            The undone edit, or None if no edits to undo.
+        """
+        async with self._lock:
+            if not self._edit_stack:
+                return None
 
-                edit = self._edit_stack.pop()
-                self._redo_stack.append(edit)
+            edit = self._edit_stack.pop()
+            self._redo_stack.append(edit)
 
-                # Apply inverse to virtual state
-                if edit.inverse and self._base_map and self._transformer:
-                    edit.inverse.apply(self._base_map, self._transformer)
+            # Apply inverse to virtual state
+            if edit.inverse and self._base_map and self._transformer:
+                edit.inverse.apply(self._base_map, self._transformer)
 
-                _LOGGER.debug(f"Undone edit: {edit.edit_id}")
-                return edit
+            _LOGGER.debug(f"Undone edit: {edit.edit_id}")
+            return edit
 
-    def redo(self) -> EditObject | None:
-        with self._lock:
-                """Redo the last undone edit.
+    async def redo(self) -> EditObject | None:
+        """Redo the last undone edit.
 
-                Returns:
-                    The redone edit, or None if no edits to redo.
-                """
-                if not self._redo_stack:
-                    return None
+        Returns:
+            The redone edit, or None if no edits to redo.
+        """
+        async with self._lock:
+            if not self._redo_stack:
+                return None
 
-                edit = self._redo_stack.pop()
-                self._edit_stack.append(edit)
+            edit = self._redo_stack.pop()
+            self._edit_stack.append(edit)
 
-                # Re-apply the edit
-                if self._base_map and self._transformer:
-                    edit.apply(self._base_map, self._transformer)
+            # Re-apply the edit
+            if self._base_map and self._transformer:
+                edit.apply(self._base_map, self._transformer)
 
-                _LOGGER.debug(f"Redone edit: {edit.edit_id}")
-                return edit
+            _LOGGER.debug(f"Redone edit: {edit.edit_id}")
+            return edit
 
-    def refresh_base_map(self, map_data: MapData) -> None:
+    async def refresh_base_map(self, map_data: MapData) -> None:
         """Refresh the base map and coordinate transformer.
 
         This is used after a physical sync to ensure the virtual state
@@ -565,17 +650,18 @@ class VirtualState:
             map_data: The fresh map data from device.
         """
         from .geometry import CoordinateTransformer
-        
-        self._base_map = map_data
-        self._transformer = CoordinateTransformer.from_map_data(map_data)
-        _LOGGER.debug("Refreshed base map in VirtualState")
 
-    def clear(self) -> None:
-        with self._lock:
-                """Clear all edits and reset to base state."""
-                self._edit_stack.clear()
-                self._redo_stack.clear()
-                _LOGGER.debug("Cleared all edits")
+        async with self._lock:
+            self._base_map = map_data
+            self._transformer = CoordinateTransformer.from_map_data(map_data)
+            _LOGGER.debug("Refreshed base map in VirtualState")
+
+    async def clear(self) -> None:
+        """Clear all edits and reset to base state."""
+        async with self._lock:
+            self._edit_stack.clear()
+            self._redo_stack.clear()
+            _LOGGER.debug("Cleared all edits")
 
     def get_edits_by_type(self, edit_type: EditType) -> list[EditObject]:
         """Get all edits of a specific type.
@@ -622,29 +708,155 @@ class VirtualState:
             "original_room_names": self._original_room_names,
             "original_walls": self._original_walls,
             "original_no_go_zones": self._original_no_go_zones,
+            "original_mop_zones": self._original_mop_zones,
+            "map_flag": getattr(self, '_map_flag', None),
+            "map_hash": getattr(self, '_map_hash', None),
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], map_data: MapData | None = None, transformer: CoordinateTransformer | None = None) -> "VirtualState":
+        """Create a VirtualState from a dictionary.
+        
+        Args:
+            data: The dictionary containing serialized state.
+            map_data: The current map data for validation.
+            transformer: Coordinate transformer for this map.
+            
+        Returns:
+            A new VirtualState instance with restored edits.
+        """
+        state = cls(map_data=map_data, transformer=transformer)
+        
+        # Restore original state
+        state._original_room_names = data.get("original_room_names", {})
+        state._original_walls = [tuple(w) for w in data.get("original_walls", [])]
+        state._original_no_go_zones = [tuple(z) for z in data.get("original_no_go_zones", [])]
+        state._original_mop_zones = [tuple(z) for z in data.get("original_mop_zones", [])]
+        state._map_flag = data.get("map_flag")
+        state._map_hash = data.get("map_hash")
+        
+        # Restore edits
+        state._edit_stack.clear()
+        state._redo_stack.clear()
+        for edit_data in data.get("edits", []):
+            try:
+                edit = EditObject.from_dict(edit_data)
+                state._edit_stack.append(edit)
+            except Exception as e:
+                _LOGGER.error(f"Failed to load edit: {e}")
+        
+        return state
 
     def __len__(self) -> int:
         """Return the number of pending edits."""
         return len(self._edit_stack)
 
-    def save(self, filepath: str | pathlib.Path) -> None:
-        """Save pending edits to a JSON file."""
-        with self._lock:
+    async def save(self, path: pathlib.Path) -> None:
+        """Save the virtual state to a JSON file.
+        
+        Args:
+            path: Path to save the state to.
+            
+        Serializes:
+            - Edit stack (all pending edits)
+            - Base map identifier (map_flag and hash)
+            - Original room names for rollback
+            - Original walls, zones for rollback
+        """
+        async with self._lock:
+            # Ensure we have current map hash
+            if self._base_map is not None and self._map_hash is None:
+                self._map_hash = self._calculate_map_hash(self._base_map)
+            
             data = {
-                "edits": [edit.to_dict() for edit in self._edit_stack]
+                "version": 1,
+                "edits": [edit.to_dict() for edit in self._edit_stack],
+                "original_room_names": self._original_room_names,
+                "original_walls": self._original_walls,
+                "original_no_go_zones": self._original_no_go_zones,
+                "original_mop_zones": self._original_mop_zones,
+                "map_flag": self._map_flag,
+                "map_hash": self._map_hash,
+                "timestamp": datetime.datetime.now().isoformat(),
             }
-            with open(filepath, "w") as f:
+            
+            # Ensure parent directory exists
+            path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
+            
+            _LOGGER.debug(f"Saved virtual state to {path} with {len(self._edit_stack)} edits")
 
-    def load(self, filepath: str | pathlib.Path) -> None:
-        """Load pending edits from a JSON file."""
+    @classmethod
+    async def load(cls, path: pathlib.Path, map_data: MapData) -> "VirtualState":
+        """Load a virtual state from a JSON file.
+        
+        Args:
+            path: Path to load the state from.
+            map_data: The current map data for validation and reconstruction.
+            
+        Returns:
+            A reconstructed VirtualState instance.
+            
+        Raises:
+            FileNotFoundError: If the file doesn't exist.
+            ValueError: If the file is invalid or map validation fails.
+        """
+        if not path.exists():
+            raise FileNotFoundError(f"Virtual state file not found: {path}")
+        
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        # Create state with map_data
+        from .geometry import CoordinateTransformer
+        transformer = CoordinateTransformer.from_map_data(map_data)
+        state = cls.from_dict(data, map_data=map_data, transformer=transformer)
+        
+        # Validate map matches saved state
+        current_hash = state._calculate_map_hash(map_data)
+        saved_hash = data.get("map_hash")
+        
+        if saved_hash and current_hash != saved_hash:
+            _LOGGER.warning(
+                f"Map hash mismatch: saved={saved_hash}, current={current_hash}. "
+                "The map may have changed since the state was saved."
+            )
+            raise ValueError(
+                f"Map has changed since state was saved (hash mismatch). "
+                f"Saved edits may no longer be valid."
+            )
+        
+        saved_map_flag = data.get("map_flag")
+        current_map_flag = getattr(map_data, "map_flag", None)
+        
+        if saved_map_flag is not None and saved_map_flag != current_map_flag:
+            _LOGGER.warning(
+                f"Map flag mismatch: saved={saved_map_flag}, current={current_map_flag}"
+            )
+            raise ValueError(
+                f"Map flag changed from {saved_map_flag} to {current_map_flag}. "
+                f"Saved edits may no longer be valid."
+            )
+        
+        _LOGGER.debug(f"Loaded virtual state from {path} with {len(state)} edits")
+        return state
+
+    async def load_legacy(self, filepath: str | pathlib.Path) -> None:
+        """Load pending edits from a JSON file (legacy method, without validation).
+        
+        This method is kept for backward compatibility. Use load() for new code.
+        
+        Args:
+            filepath: Path to the JSON file.
+        """
         path = pathlib.Path(filepath)
         if not path.exists():
             return
-            
-        with self._lock:
-            with open(path, "r") as f:
+
+        async with self._lock:
+            with open(path, "r", encoding="utf-8") as f:
                 try:
                     data = json.load(f)
                     self._edit_stack.clear()

@@ -613,5 +613,5 @@ class TranslationLayer:
 
         # 5. Update the base map for the VirtualState so subsequent matches are correct
         # This is important if we're doing multiple rounds or just to keep state consistent.
-        virtual_state.refresh_base_map(new_map)
+        await virtual_state.refresh_base_map(new_map)
         _LOGGER.info("Refreshed VirtualState base map after remapping")

@@ -57,19 +57,19 @@ async def test_v1_three_stage_sync_with_rollback(real_map_data: MapData):
     
     # 3. Create a batch of edits (Topology, Property, and Additive)
     # Edit 1: Split Room 10
-    virtual_state.add_edit(SplitRoomEdit(
+    await virtual_state.add_edit(SplitRoomEdit(
         segment_id=10,
         x1=150, y1=100,
         x2=150, y2=200
     ))
     # Edit 2: Rename Room 11
-    virtual_state.add_edit(RenameRoomEdit(
+    await virtual_state.add_edit(RenameRoomEdit(
         segment_id=11,
         old_name="Room 11",
         new_name="Kitchen"
     ))
     # Edit 3: Add a Virtual Wall
-    virtual_state.add_edit(VirtualWallEdit(
+    await virtual_state.add_edit(VirtualWallEdit(
         x1=100, y1=100,
         x2=200, y2=200
     ))
@@ -113,7 +113,7 @@ async def test_v1_three_stage_sync_with_rollback(real_map_data: MapData):
     mock_command_trait.reset_mock()
     mock_command_trait.send.side_effect = Exception("Simulated network failure")
     
-    virtual_state.add_edit(VirtualWallEdit(x1=0, y1=0, x2=10, y2=10))
+    await virtual_state.add_edit(VirtualWallEdit(x1=0, y1=0, x2=10, y2=10))
     
     # We simulate what the CLI does upon checking result.success:
     results = await translation.execute_edits(virtual_state, map_flag)
