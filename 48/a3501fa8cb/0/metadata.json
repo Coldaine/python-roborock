@@ -1,0 +1,37 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "48a3501fa8cb",
+  "session_id": "6722bae7-99b8-4e71-af6b-8d9c221fc42b",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-13T00:59:26.4313944Z",
+  "branch": "feat/add-qrevo-curv-2-flow",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "pyproject.toml"
+  ],
+  "agent": "Gemini CLI",
+  "model": "gemini-3-flash-preview",
+  "turn_id": "9623f81c170d",
+  "token_usage": {
+    "input_tokens": 11798341,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9969678,
+    "output_tokens": 39999,
+    "api_call_count": 110
+  },
+  "session_metrics": {
+    "turn_count": 6
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-13T00:59:24.9439898Z",
+    "agent_lines": 0,
+    "agent_removed": 1,
+    "human_added": 18,
+    "human_modified": 109,
+    "human_removed": 0,
+    "total_committed": 127,
+    "total_lines_changed": 129,
+    "agent_percentage": 0.7751937984496124,
+    "metric_version": 2
+  }
+}
