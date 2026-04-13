@@ -1,14 +1,9 @@
 """Traits for Q7 B01 devices.
-
-Potentially other devices may fall into this category in the future.
-"""
-
-from __future__ import annotations
+Potentially other devices may fall into this category in the future."""
 
 from typing import Any
 
 from roborock import B01Props
-from roborock.data import HomeDataDevice, HomeDataProduct, Q7MapList, Q7MapListEntry
 from roborock.data.b01_q7.b01_q7_code_mappings import (
     CleanPathPreferenceMapping,
     CleanRepeatMapping,
@@ -18,58 +13,31 @@ from roborock.data.b01_q7.b01_q7_code_mappings import (
     SCWindMapping,
     WaterLevelMapping,
 )
-from roborock.devices.rpc.b01_q7_channel import MapRpcChannel, send_decoded_command
+from roborock.devices.rpc.b01_q7_channel import send_decoded_command
 from roborock.devices.traits import Trait
 from roborock.devices.transport.mqtt_channel import MqttChannel
-from roborock.exceptions import RoborockException
-from roborock.protocols.b01_q7_protocol import B01_Q7_DPS, CommandType, ParamsType, Q7RequestMessage, create_map_key
+from roborock.protocols.b01_q7_protocol import CommandType, ParamsType, Q7RequestMessage
 from roborock.roborock_message import RoborockB01Props
 from roborock.roborock_typing import RoborockB01Q7Methods
 
 from .clean_summary import CleanSummaryTrait
-from .map import MapTrait
-from .map_content import MapContentTrait
 
 __all__ = [
     "Q7PropertiesApi",
     "CleanSummaryTrait",
-    "MapTrait",
-    "MapContentTrait",
-    "Q7MapList",
-    "Q7MapListEntry",
 ]
 
 
 class Q7PropertiesApi(Trait):
-    """API for interacting with B01 Q7 devices."""
+    """API for interacting with B01 devices."""
 
     clean_summary: CleanSummaryTrait
     """Trait for clean records / clean summary (Q7 `service.get_record_list`)."""
 
-    map: MapTrait
-    """Trait for map list metadata + raw map payload retrieval."""
-
-    map_content: MapContentTrait
-    """Trait for fetching parsed current map content."""
-
-    def __init__(
-        self, channel: MqttChannel, map_rpc_channel: MapRpcChannel, device: HomeDataDevice, product: HomeDataProduct
-    ) -> None:
-        """Initialize the Q7 API."""
+    def __init__(self, channel: MqttChannel) -> None:
+        """Initialize the B01Props API."""
         self._channel = channel
-        self._map_rpc_channel = map_rpc_channel
-        self._device = device
-        self._product = product
-
-        if not device.sn or not product.model:
-            raise ValueError("B01 Q7 map content requires device serial number and product model metadata")
-
         self.clean_summary = CleanSummaryTrait(channel)
-        self.map = MapTrait(channel)
-        self.map_content = MapContentTrait(
-            self._map_rpc_channel,
-            self.map,
-        )
 
     async def query_values(self, props: list[RoborockB01Props]) -> B01Props | None:
         """Query the device for the values of the given Q7 properties."""
@@ -119,17 +87,6 @@ class Q7PropertiesApi(Trait):
             },
         )
 
-    async def clean_segments(self, segment_ids: list[int]) -> None:
-        """Start segment cleaning for the given ids (Q7 uses room ids)."""
-        await self.send(
-            command=RoborockB01Q7Methods.SET_ROOM_CLEAN,
-            params={
-                "clean_type": CleanTaskTypeMapping.ROOM.code,
-                "ctrl_value": SCDeviceCleanParam.START.code,
-                "room_ids": segment_ids,
-            },
-        )
-
     async def pause_clean(self) -> None:
         """Pause cleaning."""
         await self.send(
@@ -170,15 +127,10 @@ class Q7PropertiesApi(Trait):
         """Send a command to the device."""
         return await send_decoded_command(
             self._channel,
-            Q7RequestMessage(dps=B01_Q7_DPS, command=command, params=params),
+            Q7RequestMessage(dps=10000, command=command, params=params),
         )
 
 
-def create(product: HomeDataProduct, device: HomeDataDevice, channel: MqttChannel) -> Q7PropertiesApi:
-    """Create traits for B01 Q7 devices."""
-    if device.sn is None or product.model is None:
-        raise RoborockException(
-            f"Device serial number and product model are required (sn:: {device.sn}, model: {product.model})"
-        )
-    map_rpc_channel = MapRpcChannel(channel, map_key=create_map_key(serial=device.sn, model=product.model))
-    return Q7PropertiesApi(channel, device=device, product=product, map_rpc_channel=map_rpc_channel)
+def create(channel: MqttChannel) -> Q7PropertiesApi:
+    """Create traits for B01 devices."""
+    return Q7PropertiesApi(channel)

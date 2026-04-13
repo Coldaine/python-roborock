@@ -32,9 +32,6 @@ class MqttParams:
     password: str
     """MQTT password to use for authentication."""
 
-    verify_tls: bool = True
-    """Verify the TLS certificate."""
-
     timeout: float = DEFAULT_TIMEOUT
     """Timeout for communications with the broker in seconds."""
 

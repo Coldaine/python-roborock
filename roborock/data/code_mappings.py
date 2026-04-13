@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from collections import namedtuple
 from enum import Enum, IntEnum, StrEnum
@@ -15,7 +17,7 @@ class RoborockEnum(IntEnum):
         return super().name.lower()
 
     @classmethod
-    def _missing_(cls: type[Self], key) -> Self:
+    def _missing_(cls: type[RoborockEnum], key) -> RoborockEnum:
         if hasattr(cls, "unknown"):
             warning = f"Missing {cls.__name__} code: {key} - defaulting to 'unknown'"
             if warning not in completed_warnings:
@@ -30,23 +32,23 @@ class RoborockEnum(IntEnum):
         return default_value
 
     @classmethod
-    def as_dict(cls: type[Self]):
+    def as_dict(cls: type[RoborockEnum]):
         return {i.name: i.value for i in cls if i.name != "missing"}
 
     @classmethod
-    def as_enum_dict(cls: type[Self]):
+    def as_enum_dict(cls: type[RoborockEnum]):
         return {i.value: i for i in cls if i.name != "missing"}
 
     @classmethod
-    def values(cls: type[Self]) -> list[int]:
+    def values(cls: type[RoborockEnum]) -> list[int]:
         return list(cls.as_dict().values())
 
     @classmethod
-    def keys(cls: type[Self]) -> list[str]:
+    def keys(cls: type[RoborockEnum]) -> list[str]:
         return list(cls.as_dict().keys())
 
     @classmethod
-    def items(cls: type[Self]):
+    def items(cls: type[RoborockEnum]):
         return cls.as_dict().items()
 
 
@@ -97,30 +99,6 @@ class RoborockModeEnum(StrEnum):
             if member.name.lower() == name.lower():
                 return member
         raise ValueError(f"{name} is not a valid name for {cls.__name__}")
-
-    @classmethod
-    def from_any_optional(cls, value: str | int) -> Self | None:
-        """Resolve a string or int to an enum member.
-
-        Tries to look up by enum name, string value, or integer code
-        and returns None if no match is found.
-        """
-        # Try enum name lookup (e.g. "SEEK")
-        try:
-            return cls.from_name(str(value))
-        except ValueError:
-            pass
-        # Try DP string value lookup (e.g. "dpSeek")
-        try:
-            return cls.from_value(str(value))
-        except ValueError:
-            pass
-        # Try integer code lookup (e.g. "11")
-        try:
-            return cls.from_code(int(value))
-        except (ValueError, TypeError):
-            pass
-        return None
 
     @classmethod
     def keys(cls) -> list[str]:
@@ -199,6 +177,7 @@ class RoborockProductNickname(Enum):
 
     # Vivian Series
     VIVIAN = ProductInfo(nickname="Vivian", short_models=("a134", "a135", "a155", "a156"))
+    VIVIANS = ProductInfo(nickname="VivianS", short_models=("a245",))  # Qrevo Curv 2 Flow — roller mop, dock type 29
     VIVIANC = ProductInfo(nickname="VivianC", short_models=("a158", "a159"))
 
 

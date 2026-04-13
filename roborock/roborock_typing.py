@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
-from typing import Self
 
 from .data import (
     CleanRecord,
@@ -367,7 +368,7 @@ class DeviceProp(RoborockBase):
         ):
             self.dust_collection_mode_name = self.dock_summary.dust_collection_mode.mode.name
 
-    def update(self, device_prop: Self) -> None:
+    def update(self, device_prop: DeviceProp) -> None:
         if device_prop.status:
             self.status = device_prop.status
         if device_prop.clean_summary:

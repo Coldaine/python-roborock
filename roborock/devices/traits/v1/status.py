@@ -1,15 +1,7 @@
 from functools import cached_property
+from typing import Self
 
-from roborock import (
-    CleanRoutes,
-    StatusV2,
-    VacuumModes,
-    WaterModes,
-    get_clean_modes,
-    get_clean_routes,
-    get_water_mode_mapping,
-    get_water_modes,
-)
+from roborock import CleanRoutes, StatusV2, VacuumModes, WaterModes, get_clean_modes, get_clean_routes, get_water_modes
 from roborock.roborock_typing import RoborockCommand
 
 from . import common
@@ -42,7 +34,6 @@ class StatusTrait(StatusV2, common.V1TraitMixin):
     """
 
     command = RoborockCommand.GET_STATUS
-    converter = common.DefaultConverter(StatusV2)
 
     def __init__(self, device_feature_trait: DeviceFeaturesTrait, region: str | None = None) -> None:
         """Initialize the StatusTrait."""
@@ -64,7 +55,7 @@ class StatusTrait(StatusV2, common.V1TraitMixin):
 
     @cached_property
     def water_mode_mapping(self) -> dict[int, str]:
-        return get_water_mode_mapping(self._device_features_trait)
+        return {mop.code: mop.value for mop in self.water_mode_options}
 
     @cached_property
     def mop_route_options(self) -> list[CleanRoutes]:
@@ -91,3 +82,11 @@ class StatusTrait(StatusV2, common.V1TraitMixin):
         if self.mop_mode is None:
             return None
         return self.mop_route_mapping.get(self.mop_mode)
+
+    def _parse_response(self, response: common.V1ResponseData) -> Self:
+        """Parse the response from the device into a StatusV2-based status object."""
+        if isinstance(response, list):
+            response = response[0]
+        if isinstance(response, dict):
+            return StatusV2.from_dict(response)
+        raise ValueError(f"Unexpected status format: {response!r}")

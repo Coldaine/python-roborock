@@ -40,15 +40,19 @@ class MapContent(RoborockBase):
         return f"MapContent(image_content={img!r}, map_data={self.map_data!r})"
 
 
-class MapContentConverter(common.V1TraitDataConverter):
-    """Convert map response data to MapContent."""
+@common.map_rpc_channel
+class MapContentTrait(MapContent, common.V1TraitMixin):
+    """Trait for fetching the map content."""
 
-    def __init__(self, map_parser: MapParser) -> None:
-        """Initialize MapContentConverter."""
-        self._map_parser = map_parser
+    command = RoborockCommand.GET_MAP_V1
 
-    def convert(self, response: common.V1ResponseData) -> MapContent:
-        """Parse the response from the device into a MapContent instance."""
+    def __init__(self, map_parser_config: MapParserConfig | None = None) -> None:
+        """Initialize MapContentTrait."""
+        super().__init__()
+        self._map_parser = MapParser(map_parser_config or MapParserConfig())
+
+    def _parse_response(self, response: common.V1ResponseData) -> MapContent:
+        """Parse the response from the device into a MapContentTrait instance."""
         if not isinstance(response, bytes):
             raise ValueError(f"Unexpected MapContentTrait response format: {type(response)}")
         return self.parse_map_content(response)
@@ -77,16 +81,3 @@ class MapContentConverter(common.V1TraitDataConverter):
             map_data=parsed_data.map_data,
             raw_api_response=response,
         )
-
-
-@common.map_rpc_channel
-class MapContentTrait(MapContent, common.V1TraitMixin):
-    """Trait for fetching the map content."""
-
-    command = RoborockCommand.GET_MAP_V1
-    converter: MapContentConverter
-
-    def __init__(self, map_parser_config: MapParserConfig | None = None) -> None:
-        """Initialize MapContentTrait."""
-        super().__init__()
-        self.converter = MapContentConverter(MapParser(map_parser_config or MapParserConfig()))
