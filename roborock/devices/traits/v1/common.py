@@ -119,15 +119,14 @@ class RoborockValueBase(V1TraitMixin, RoborockBase):
     represents the main value of the trait.
     """
 
-    @classmethod
-    def _parse_response(cls, response: V1ResponseData) -> Self:
+    def _parse_response(self, response: V1ResponseData) -> Self:
         """Parse the response from the device into a RoborockValueBase."""
         if isinstance(response, list):
             response = response[0]
         if not isinstance(response, int):
             raise ValueError(f"Unexpected response format: {response!r}")
-        value_field = _get_value_field(cls)
-        return cls(**{value_field: response})
+        value_field = _get_value_field(type(self))
+        return type(self)(**{value_field: response})
 
 
 class RoborockSwitchBase(ABC):

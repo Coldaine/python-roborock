@@ -18,7 +18,7 @@ async def explore_map_data(duid: str):
     conn_manager = DeviceConnectionManager(context)
     try:
         device = await conn_manager.get_device(duid)
-        _LOGGER.info(f"Connected to device: {device.duid}")
+        _LOGGER.info("Connected to requested device")
         
         # Pull map binary using the trait
         _LOGGER.info("Fetching map data via MapContentTrait...")
@@ -33,7 +33,7 @@ async def explore_map_data(duid: str):
         # Save image for visual verification
         if map_trait.image_content:
             image_path = Path("explore_map.png")
-            image_path.write_bytes(map_trait.image_content)
+            await asyncio.to_thread(image_path.write_bytes, map_trait.image_content)
             _LOGGER.info(f"Saved map image to {image_path}")
 
         _LOGGER.info("--- MapData Inspection ---")
