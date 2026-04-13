@@ -1,9 +1,11 @@
 {
   "cli_version": "dev",
   "checkpoint_id": "20ecb0e2b005",
+  "session_id": "6722bae7-99b8-4e71-af6b-8d9c221fc42b",
   "strategy": "manual-commit",
+  "created_at": "2026-04-13T00:56:54.0890799Z",
   "branch": "codex/merge-check",
-  "checkpoints_count": 2,
+  "checkpoints_count": 1,
   "files_touched": [
     "pyproject.toml",
     "roborock/data/b01_q7/b01_q7_containers.py",
@@ -23,31 +25,34 @@
     "roborock/mqtt/session.py",
     "roborock/protocols/b01_q7_protocol.py",
     "roborock/roborock_message.py",
-    "roborock/roborock_typing.py",
     "roborock/web_api.py",
     "tests/devices/traits/b01/q7/test_init.py",
     "tests/devices/traits/v1/test_home.py",
     "tests/devices/traits/v1/test_rooms.py"
   ],
-  "sessions": [
-    {
-      "metadata": "/20/ecb0e2b005/0/metadata.json",
-      "transcript": "/20/ecb0e2b005/0/full.jsonl",
-      "content_hash": "/20/ecb0e2b005/0/content_hash.txt",
-      "prompt": "/20/ecb0e2b005/0/prompt.txt"
-    },
-    {
-      "metadata": "/20/ecb0e2b005/1/metadata.json",
-      "transcript": "/20/ecb0e2b005/1/full.jsonl",
-      "content_hash": "/20/ecb0e2b005/1/content_hash.txt",
-      "prompt": "/20/ecb0e2b005/1/prompt.txt"
-    }
-  ],
+  "agent": "Gemini CLI",
+  "model": "gemini-3-flash-preview",
+  "turn_id": "9623f81c170d",
   "token_usage": {
-    "input_tokens": 37696194,
+    "input_tokens": 11798341,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 31944800,
-    "output_tokens": 187955,
-    "api_call_count": 379
+    "cache_read_tokens": 9969678,
+    "output_tokens": 39999,
+    "api_call_count": 110
+  },
+  "session_metrics": {
+    "turn_count": 6
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-13T00:56:52.6449746Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 1029,
+    "human_modified": 4633,
+    "human_removed": 0,
+    "total_committed": 5662,
+    "total_lines_changed": 7493,
+    "agent_percentage": 0,
+    "metric_version": 2
   }
 }

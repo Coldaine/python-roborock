@@ -1,0 +1,21 @@
+Begin review. Look at everything: is everything committed? Has everything been pushed? Can you look at the open PR and address any valid comments?
+
+---
+
+Take one more review pass. Can you see all the files that you changed? Can you think through why the errors occurred? Is it an architectural problem or just sloppy code? Is there duplication? Is the workflow clear? Is there any documentation of what the intent of any of this code was?
+
+---
+
+Can you explain and justify your most recent round of edits? Why are they an improvement, and what pattern do you follow?
+
+---
+
+Can you explain and justify your most recent round of edits? Why are they an improvement, and what pattern do you follow?
+
+---
+
+I'm still thinking, seeing a ton of problems. Keep reviewing.
+
+---
+
+Email us for a moment and tell me why you keep deleting huge swaths of code.
