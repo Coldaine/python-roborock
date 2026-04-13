@@ -5,75 +5,31 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Callable
-from typing import TypeAlias, TypeVar
+from typing import Any
 
 from roborock.devices.transport.mqtt_channel import MqttChannel
 from roborock.exceptions import RoborockException
 from roborock.protocols.b01_q7_protocol import (
-    B01_VERSION,
-    MapKey,
     Q7RequestMessage,
-    decode_map_payload,
     decode_rpc_response,
     encode_mqtt_payload,
 )
-from roborock.roborock_message import RoborockMessage, RoborockMessageProtocol
+from roborock.roborock_message import RoborockMessage
 
 _LOGGER = logging.getLogger(__name__)
 _TIMEOUT = 10.0
-_T = TypeVar("_T")
-DecodedB01Response: TypeAlias = dict[str, object] | str
-
-
-def _matches_map_response(response_message: RoborockMessage, *, version: bytes | None) -> bytes | None:
-    """Return raw map payload bytes for matching MAP_RESPONSE messages."""
-    if (
-        response_message.protocol == RoborockMessageProtocol.MAP_RESPONSE
-        and response_message.payload
-        and response_message.version == version
-    ):
-        return response_message.payload
-    return None
-
-
-async def _send_command(
-    mqtt_channel: MqttChannel,
-    request_message: Q7RequestMessage,
-    *,
-    response_matcher: Callable[[RoborockMessage], _T | None],
-) -> _T:
-    """Publish a B01 command and resolve on the first matching response."""
-    roborock_message = encode_mqtt_payload(request_message)
-    future: asyncio.Future[_T] = asyncio.get_running_loop().create_future()
-
-    def on_message(response_message: RoborockMessage) -> None:
-        if future.done():
-            return
-        try:
-            response = response_matcher(response_message)
-        except Exception as ex:
-            future.set_exception(ex)
-            return
-        if response is not None:
-            future.set_result(response)
-
-    unsub = await mqtt_channel.subscribe(on_message)
-    try:
-        await mqtt_channel.publish(roborock_message)
-        return await asyncio.wait_for(future, timeout=_TIMEOUT)
-    finally:
-        unsub()
 
 
 async def send_decoded_command(
     mqtt_channel: MqttChannel,
     request_message: Q7RequestMessage,
-) -> DecodedB01Response:
+) -> dict[str, Any] | None:
     """Send a command on the MQTT channel and get a decoded response."""
     _LOGGER.debug("Sending B01 MQTT command: %s", request_message)
+    roborock_message = encode_mqtt_payload(request_message)
+    future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
 
-    def find_response(response_message: RoborockMessage) -> DecodedB01Response | None:
+    def find_response(response_message: RoborockMessage) -> None:
         """Handle incoming messages and resolve the future."""
         try:
             decoded_dps = decode_rpc_response(response_message)
@@ -85,7 +41,7 @@ async def send_decoded_command(
                 response_message,
                 ex,
             )
-            return None
+            return
         for dps_value in decoded_dps.values():
             # valid responses are JSON strings wrapped in the dps value
             if not isinstance(dps_value, str):
@@ -99,23 +55,31 @@ async def send_decoded_command(
                 continue
             if isinstance(inner, dict) and inner.get("msgId") == str(request_message.msg_id):
                 _LOGGER.debug("Received query response: %s", inner)
+                # Check for error code (0 = success, non-zero = error)
                 code = inner.get("code", 0)
                 if code != 0:
                     error_msg = f"B01 command failed with code {code} ({request_message})"
                     _LOGGER.debug("B01 error response: %s", error_msg)
-                    raise RoborockException(error_msg)
+                    if not future.done():
+                        future.set_exception(RoborockException(error_msg))
+                    return
                 data = inner.get("data")
-                if request_message.command == "prop.get" and not isinstance(data, dict):
-                    raise RoborockException(f"Unexpected data type for response {data} ({request_message})")
-                return data
-        return None
+                # All get commands should be dicts
+                if request_message.command.endswith(".get") and not isinstance(data, dict):
+                    if not future.done():
+                        future.set_exception(
+                            RoborockException(f"Unexpected data type for response {data} ({request_message})")
+                        )
+                    return
+                if not future.done():
+                    future.set_result(data)
 
+    unsub = await mqtt_channel.subscribe(find_response)
+
+    _LOGGER.debug("Sending MQTT message: %s", roborock_message)
     try:
-        return await _send_command(
-            mqtt_channel,
-            request_message,
-            response_matcher=find_response,
-        )
+        await mqtt_channel.publish(roborock_message)
+        return await asyncio.wait_for(future, timeout=_TIMEOUT)
     except TimeoutError as ex:
         raise RoborockException(f"B01 command timed out after {_TIMEOUT}s ({request_message})") from ex
     except RoborockException as ex:
@@ -125,6 +89,7 @@ async def send_decoded_command(
             ex,
         )
         raise
+
     except Exception as ex:
         _LOGGER.exception(
             "Error sending B01 decoded command (%ss): %s",
@@ -132,34 +97,5 @@ async def send_decoded_command(
             ex,
         )
         raise
-
-
-class MapRpcChannel:
-    """RPC channel for map-related commands on B01/Q7 devices."""
-
-    def __init__(self, mqtt_channel: MqttChannel, map_key: MapKey) -> None:
-        self._mqtt_channel = mqtt_channel
-        self._map_key = map_key
-
-    async def send_map_command(self, request_message: Q7RequestMessage) -> bytes:
-        """Send a map upload command and return decoded SCMap bytes.
-
-        This publishes the request and waits for a matching ``MAP_RESPONSE`` message
-        with the correct protocol version. The raw ``MAP_RESPONSE`` payload bytes are
-        then decoded/inflated via :func:`decode_map_payload` using this channel's
-        ``map_key``, and the resulting SCMap bytes are returned.
-
-        The returned value is the decoded map data bytes suitable for passing to the
-        map parser library, not the raw MQTT ``MAP_RESPONSE`` payload bytes.
-        """
-
-        try:
-            raw_payload = await _send_command(
-                self._mqtt_channel,
-                request_message,
-                response_matcher=lambda response_message: _matches_map_response(response_message, version=B01_VERSION),
-            )
-        except TimeoutError as ex:
-            raise RoborockException(f"B01 map command timed out after {_TIMEOUT}s ({request_message})") from ex
-
-        return decode_map_payload(raw_payload, map_key=self._map_key)
+    finally:
+        unsub()

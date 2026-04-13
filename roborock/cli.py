@@ -44,7 +44,7 @@ from pyshark.packet.packet import Packet  # type: ignore
 from roborock import RoborockCommand
 from roborock.data import RoborockBase, UserData
 from roborock.data.b01_q10.b01_q10_code_mappings import B01_Q10_DP, YXCleanType, YXFanLevel
-from roborock.data.code_mappings import SHORT_MODEL_TO_ENUM
+from roborock.data.code_mappings import SHORT_MODEL_TO_ENUM, RoborockProductNickname
 from roborock.device_features import DeviceFeatures
 from roborock.devices.cache import Cache, CacheData
 from roborock.devices.device import RoborockDevice
@@ -764,6 +764,21 @@ async def network_info(ctx, device_id: str):
     await _display_v1_trait(context, device_id, lambda v1: v1.network_info)
 
 
+def _parse_b01_q10_command(cmd: str) -> B01_Q10_DP:
+    """Parse B01_Q10 command from either enum name or value."""
+    try:
+        return B01_Q10_DP.from_code(int(cmd))
+    except ValueError:
+        try:
+            return B01_Q10_DP.from_name(cmd)
+        except ValueError:
+            try:
+                return B01_Q10_DP.from_value(cmd)
+            except ValueError:
+                pass
+    raise RoborockException(f"Invalid command {cmd} for B01_Q10 device")
+
+
 @click.command()
 @click.option("--device_id", required=True)
 @click.option("--cmd", required=True)
@@ -780,8 +795,7 @@ async def command(ctx, cmd, device_id, params):
         if result:
             click.echo(dump_json(result))
     elif device.b01_q10_properties is not None:
-        if cmd_value := B01_Q10_DP.from_any_optional(cmd) is None:
-            raise RoborockException(f"Invalid command {cmd} for B01_Q10 device")
+        cmd_value = _parse_b01_q10_command(cmd)
         command_trait: Trait = device.b01_q10_properties.command
         await command_trait.send(cmd_value, json.loads(params) if params is not None else None)
         click.echo("Command sent successfully; Enable debug logging (-d) to see responses.")
@@ -1066,11 +1080,15 @@ def update_docs(data_file: str, output_file: str):
     # Process the raw data from YAML to build the feature map
     for model, data in product_data_from_yaml.items():
         # Reconstruct the DeviceFeatures object from the raw data in the YAML file
+        product_nickname_str = data.get("product_nickname")
+        product_nickname = None
+        if product_nickname_str and product_nickname_str in RoborockProductNickname.__members__:
+            product_nickname = RoborockProductNickname[product_nickname_str]
         device_features = DeviceFeatures.from_feature_flags(
             new_feature_info=data.get("new_feature_info"),
             new_feature_info_str=data.get("new_feature_info_str"),
             feature_info=data.get("feature_info"),
-            product_nickname=data.get("product_nickname"),
+            product_nickname=product_nickname,
         )
         features_dict = asdict(device_features)
 
@@ -1080,11 +1098,15 @@ def update_docs(data_file: str, output_file: str):
             "protocol_version": data.get("protocol_version", ""),
             "new_feature_info": data.get("new_feature_info", ""),
             "new_feature_info_str": data.get("new_feature_info_str", ""),
+            "feature_info": data.get("feature_info", ""),
         }
 
         # Populate features from the calculated DeviceFeatures object
         for feature, is_supported in features_dict.items():
             all_feature_names.add(feature)
+            if feature in current_product_data:
+                # Skip populating the metadata keys as booleans, as they are already set.
+                continue
             if is_supported:
                 current_product_data[feature] = "X"
 
@@ -1106,6 +1128,7 @@ def update_docs(data_file: str, output_file: str):
             "protocol_version",
             "new_feature_info",
             "new_feature_info_str",
+            "feature_info",
         ]
         # Regular features are the remaining keys, sorted alphabetically
         # We filter out the special rows to avoid duplicating them.
@@ -1275,12 +1298,7 @@ async def q10_empty_dustbin(ctx: click.Context, device_id: str) -> None:
 
 @session.command()
 @click.option("--device_id", required=True, help="Device ID")
-@click.option(
-    "--mode",
-    required=True,
-    type=click.Choice(["vac_and_mop", "vacuum", "mop"], case_sensitive=False),
-    help='Clean mode (preferred: "vac_and_mop", "vacuum", "mop")',
-)
+@click.option("--mode", required=True, type=click.Choice(["bothwork", "onlysweep", "onlymop"]), help="Clean mode")
 @click.pass_context
 @async_command
 async def q10_set_clean_mode(ctx: click.Context, device_id: str, mode: str) -> None:

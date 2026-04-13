@@ -1,0 +1,31 @@
+{
+    "duid": "device-id-a245",
+    "name": "Roborock Qrevo Curv 2 Flow",
+    "localKey": "key123key123key1",
+    "productId": "64Pgg7cwjxHqT2qQrEh7Ib",
+    "fv": "03.01.71",
+    "activeTime": 1749513705,
+    "timeZoneId": "Pacific/Auckland",
+    "iconUrl": "",
+    "share": true,
+    "shareTime": 1754789238,
+    "online": true,
+    "pv": "1.0",
+    "tuyaMigrated": false,
+    "extra": "{\"1749518432\": \"0\", \"1753581557\": \"0\", \"clean_finish\": \"{}\"}",
+    "sn": "a245_sn",
+    "deviceStatus": {
+        "121": 8,
+        "122": 100,
+        "123": 4,
+        "124": 2,
+        "125": 77,
+        "126": 4294965348,
+        "127": 54
+    },
+    "silentOtaSwitch": false,
+    "f": false,
+    "createTime": 1749513706,
+    "cid": "DE",
+    "shareType": "UNLIMITED_TIME"
+}

@@ -23,8 +23,6 @@ class ConsumableAttribute(StrEnum):
     FILTER_WORK_TIME = "filter_work_time"
     SIDE_BRUSH_WORK_TIME = "side_brush_work_time"
     MAIN_BRUSH_WORK_TIME = "main_brush_work_time"
-    STRAINER_WORK_TIME = "strainer_work_time"
-    CLEANING_BRUSH_WORK_TIME = "cleaning_brush_work_time"
 
     @classmethod
     def from_str(cls, value: str) -> Self:
@@ -43,7 +41,6 @@ class ConsumableTrait(Consumable, common.V1TraitMixin):
     """
 
     command = RoborockCommand.GET_CONSUMABLE
-    converter = common.DefaultConverter(Consumable)
 
     async def reset_consumable(self, consumable: ConsumableAttribute) -> None:
         """Reset a specific consumable attribute on the device."""

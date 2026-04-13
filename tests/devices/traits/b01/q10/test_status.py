@@ -96,10 +96,10 @@ async def test_status_trait_streaming(
     message_queue.put_nowait(message)
 
     # Wait for the update
-    await wait_for_attribute_value(q10_api.status, "status", YXDeviceState.CHARGING)
+    await wait_for_attribute_value(q10_api.status, "status", YXDeviceState.CHARGING_STATE)
 
     # Verify trait attributes are updated
-    assert q10_api.status.status == YXDeviceState.CHARGING
+    assert q10_api.status.status == YXDeviceState.CHARGING_STATE
     assert q10_api.status.clean_task_type == YXDeviceCleanTask.IDLE
 
 
@@ -112,15 +112,11 @@ async def test_status_trait_refresh(
     assert q10_api.status.battery is None
     assert q10_api.status.status is None
     assert q10_api.status.fan_level is None
-    assert q10_api.status.total_clean_count is None
-    assert q10_api.status.main_brush_life is None
-    assert q10_api.status.cleaning_progress is None
-    assert q10_api.status.fault is None
 
     # Mock the response to refresh
     # battery (122) = 100
     # status (121) = 8 (CHARGING_STATE)
-    # fan_level (123) = 2 (BALANCED)
+    # fun_level (123) = 2 (NORMAL)
     message = build_message(TESTDATA_DP_REQUEST_DPS)
 
     # Send a refresh command
@@ -142,17 +138,8 @@ async def test_status_trait_refresh(
 
     # Verify trait attributes are updated
     assert q10_api.status.battery == 100
-    assert q10_api.status.status == YXDeviceState.CHARGING
-    assert q10_api.status.fan_level == YXFanLevel.BALANCED
-    assert q10_api.status.total_clean_area == 0
-    assert q10_api.status.total_clean_count == 0
-    assert q10_api.status.total_clean_time == 0
-    assert q10_api.status.main_brush_life == 0
-    assert q10_api.status.side_brush_life == 0
-    assert q10_api.status.filter_life == 0
-    assert q10_api.status.sensor_life == 0
-    assert q10_api.status.cleaning_progress == 100
-    assert q10_api.status.fault == 0
+    assert q10_api.status.status == YXDeviceState.CHARGING_STATE
+    assert q10_api.status.fan_level == YXFanLevel.NORMAL
 
 
 def test_status_trait_update_listener(q10_api: Q10PropertiesApi) -> None:

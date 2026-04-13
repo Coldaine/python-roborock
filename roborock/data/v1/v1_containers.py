@@ -12,9 +12,13 @@ from roborock.const import (
     MOP_ROLLER_REPLACE_TIME,
     NO_MAP,
     ROBOROCK_G10S_PRO,
+    ROBOROCK_G20S_Ultra,
     ROBOROCK_P10,
     ROBOROCK_Q7_MAX,
     ROBOROCK_QREVO_CURV,
+    ROBOROCK_QREVO_CURV_A155,
+    ROBOROCK_QREVO_CURV_A156,
+    ROBOROCK_QREVO_CURV_2_FLOW,
     ROBOROCK_QREVO_MASTER,
     ROBOROCK_QREVO_MAXV,
     ROBOROCK_QREVO_PRO,
@@ -31,15 +35,15 @@ from roborock.const import (
     ROBOROCK_S8_PRO_ULTRA,
     ROBOROCK_SAROS_10,
     ROBOROCK_SAROS_10R,
+    ROBOROCK_VIVIAN_C_A158,
+    ROBOROCK_VIVIAN_C_A159,
     SENSOR_DIRTY_REPLACE_TIME,
     SIDE_BRUSH_REPLACE_TIME,
     STRAINER_REPLACE_TIME,
-    ROBOROCK_G20S_Ultra,
 )
 from roborock.exceptions import RoborockException
 
-from ..containers import NamedRoomMapping, RoborockBase, RoborockBaseTimer, _attr_repr
-from .v1_clean_modes import WashTowelModes
+from ..containers import RoborockBase, RoborockBaseTimer, _attr_repr
 from .v1_code_mappings import (
     CleanFluidStatus,
     ClearWaterBoxStatus,
@@ -49,6 +53,7 @@ from .v1_code_mappings import (
     RoborockDockDustCollectionModeCode,
     RoborockDockErrorCode,
     RoborockDockTypeCode,
+    RoborockDockWashTowelModeCode,
     RoborockErrorCode,
     RoborockFanPowerCode,
     RoborockFanSpeedP10,
@@ -113,7 +118,6 @@ class StatusField(FieldNameBase):
     WATER_BOX_MODE = "water_box_mode"
     CHARGE_STATUS = "charge_status"
     DRY_STATUS = "dry_status"
-    ERROR_CODE = "error_code"
 
 
 def _requires_schema_code(requires_schema_code: str, default=None) -> Any:
@@ -126,11 +130,11 @@ class Status(RoborockBase):
 
     msg_ver: int | None = None
     msg_seq: int | None = None
-    state: RoborockStateCode | None = _requires_schema_code("state")
-    battery: int | None = _requires_schema_code("battery")
+    state: RoborockStateCode | None = _requires_schema_code("state", default=None)
+    battery: int | None = _requires_schema_code("battery", default=None)
     clean_time: int | None = None
     clean_area: int | None = None
-    error_code: RoborockErrorCode | None = _requires_schema_code("error_code")
+    error_code: RoborockErrorCode | None = None
     map_present: int | None = None
     in_cleaning: RoborockInCleaning | None = None
     in_returning: int | None = None
@@ -140,12 +144,12 @@ class Status(RoborockBase):
     back_type: int | None = None
     wash_phase: int | None = None
     wash_ready: int | None = None
-    fan_power: RoborockFanPowerCode | None = _requires_schema_code("fan_power")
+    fan_power: RoborockFanPowerCode | None = _requires_schema_code("fan_power", default=None)
     dnd_enabled: int | None = None
     map_status: int | None = None
     is_locating: int | None = None
     lock_status: int | None = None
-    water_box_mode: RoborockMopIntensityCode | None = _requires_schema_code("water_box_mode")
+    water_box_mode: RoborockMopIntensityCode | None = _requires_schema_code("water_box_mode", default=None)
     water_box_carriage_status: int | None = None
     mop_forbidden_enable: int | None = None
     camera_status: int | None = None
@@ -163,13 +167,13 @@ class Status(RoborockBase):
     collision_avoid_status: int | None = None
     switch_map_mode: int | None = None
     dock_error_status: RoborockDockErrorCode | None = None
-    charge_status: int | None = _requires_schema_code("charge_status")
+    charge_status: int | None = _requires_schema_code("charge_status", default=None)
     unsave_map_reason: int | None = None
     unsave_map_flag: int | None = None
     wash_status: int | None = None
     distance_off: int | None = None
     in_warmup: int | None = None
-    dry_status: int | None = _requires_schema_code("drying_status")
+    dry_status: int | None = _requires_schema_code("drying_status", default=None)
     rdt: int | None = None
     clean_percent: int | None = None
     rss: int | None = None
@@ -294,11 +298,11 @@ class StatusV2(RoborockBase):
 
     msg_ver: int | None = None
     msg_seq: int | None = None
-    state: RoborockStateCode | None = _requires_schema_code("state")
-    battery: int | None = _requires_schema_code("battery")
+    state: RoborockStateCode | None = None
+    battery: int | None = None
     clean_time: int | None = None
     clean_area: int | None = None
-    error_code: RoborockErrorCode | None = _requires_schema_code("error_code")
+    error_code: RoborockErrorCode | None = None
     map_present: int | None = None
     in_cleaning: RoborockInCleaning | None = None
     in_returning: int | None = None
@@ -308,12 +312,12 @@ class StatusV2(RoborockBase):
     back_type: int | None = None
     wash_phase: int | None = None
     wash_ready: int | None = None
-    fan_power: int | None = _requires_schema_code("fan_power")
+    fan_power: int | None = None
     dnd_enabled: int | None = None
     map_status: int | None = None
     is_locating: int | None = None
     lock_status: int | None = None
-    water_box_mode: int | None = _requires_schema_code("water_box_mode")
+    water_box_mode: int | None = None
     water_box_carriage_status: int | None = None
     mop_forbidden_enable: int | None = None
     camera_status: int | None = None
@@ -330,14 +334,14 @@ class StatusV2(RoborockBase):
     debug_mode: int | None = None
     collision_avoid_status: int | None = None
     switch_map_mode: int | None = None
-    dock_error_status: RoborockDockErrorCode | None = _requires_schema_code("dock_error_status")
-    charge_status: int | None = _requires_schema_code("charge_status")
+    dock_error_status: RoborockDockErrorCode | None = None
+    charge_status: int | None = None
     unsave_map_reason: int | None = None
     unsave_map_flag: int | None = None
     wash_status: int | None = None
     distance_off: int | None = None
     in_warmup: int | None = None
-    dry_status: int | None = _requires_schema_code("drying_status")
+    dry_status: int | None = None
     rdt: int | None = None
     clean_percent: int | None = None
     rss: int | None = None
@@ -401,7 +405,6 @@ class StatusV2(RoborockBase):
             value = (self.dss >> 10) & 3
             if value == 0:
                 return None  # Feature not supported by this device
-            return CleanFluidStatus(value)
         return None
 
     @property
@@ -448,6 +451,20 @@ class QRevoMasterStatus(Status):
 
 @dataclass
 class QRevoCurvStatus(Status):
+    fan_power: RoborockFanSpeedQRevoCurv | None = None
+    water_box_mode: RoborockMopIntensityQRevoCurv | None = None
+    mop_mode: RoborockMopModeQRevoCurv | None = None
+
+
+@dataclass
+class QRevoCurv2FlowStatus(Status):
+    """Status for Roborock Qrevo Curv 2 Flow (roborock.vacuum.a245).
+
+    Fan/mop/water codes confirmed via live device probe (dock type 29).
+    Uses same enum classes as QRevoCurv; roller mop hardware confirmed by
+    moprollerWorkTime in consumables response.
+    """
+
     fan_power: RoborockFanSpeedQRevoCurv | None = None
     water_box_mode: RoborockMopIntensityQRevoCurv | None = None
     mop_mode: RoborockMopModeQRevoCurv | None = None
@@ -533,6 +550,7 @@ ModelStatus: dict[str, type[Status]] = {
     ROBOROCK_Q7_MAX: Q7MaxStatus,
     ROBOROCK_QREVO_MASTER: QRevoMasterStatus,
     ROBOROCK_QREVO_CURV: QRevoCurvStatus,
+    ROBOROCK_QREVO_CURV_2_FLOW: QRevoCurv2FlowStatus,
     ROBOROCK_S6: S6PureStatus,
     ROBOROCK_S6_MAXV: S6MaxVStatus,
     ROBOROCK_S6_PURE: S6PureStatus,
@@ -552,6 +570,14 @@ ModelStatus: dict[str, type[Status]] = {
     ROBOROCK_S8_MAXV_ULTRA: S8MaxvUltraStatus,
     ROBOROCK_SAROS_10R: Saros10RStatus,
     ROBOROCK_SAROS_10: Saros10Status,
+    # Unconfirmed Vivian-series a155/a156 — mapped to QRevoCurvStatus as best guess.
+    # a245 (Qrevo Curv 2 Flow) is confirmed separately above; these are different models.
+    ROBOROCK_QREVO_CURV_A155: QRevoCurvStatus,
+    ROBOROCK_QREVO_CURV_A156: QRevoCurvStatus,
+    # VivianC variants (a158/a159) — single-line camera, spin-mop configuration.
+    # Mapped to QRevoCurvStatus until specific enum data is available from device owners.
+    ROBOROCK_VIVIAN_C_A158: QRevoCurvStatus,
+    ROBOROCK_VIVIAN_C_A159: QRevoCurvStatus,
 }
 
 
@@ -625,27 +651,11 @@ class CleanSummaryWithDetail(CleanSummary):
     last_clean_record: CleanRecord | None = None
 
 
-class ConsumableField(FieldNameBase):
-    """An enum that represents a field in the `Consumable` class.
-
-    This is used with `roborock.devices.traits.v1.status.DeviceFeaturesTrait`
-    to understand if a feature is supported by the device using `is_field_supported`.
-
-    The enum values are names of fields in the `Consumable` class. Each field is
-    annotated with `requires_schema_code` metadata to map the field to a schema
-    code in the product schema, which may have a different name than the field/attribute name.
-    """
-
-    MAIN_BRUSH_WORK_TIME = "main_brush_work_time"
-    SIDE_BRUSH_WORK_TIME = "side_brush_work_time"
-    FILTER_WORK_TIME = "filter_work_time"
-
-
 @dataclass
 class Consumable(RoborockBase):
-    main_brush_work_time: int | None = field(metadata={"requires_schema_code": "main_brush_life"}, default=None)
-    side_brush_work_time: int | None = field(metadata={"requires_schema_code": "side_brush_life"}, default=None)
-    filter_work_time: int | None = field(metadata={"requires_schema_code": "filter_life"}, default=None)
+    main_brush_work_time: int | None = None
+    side_brush_work_time: int | None = None
+    filter_work_time: int | None = None
     filter_element_work_time: int | None = None
     sensor_dirty_time: int | None = None
     strainer_work_times: int | None = None
@@ -704,17 +714,6 @@ class MultiMapsListRoom(RoborockBase):
     iot_name_id: str | None = None
     iot_name: str | None = None
 
-    @property
-    def named_room_mapping(self) -> NamedRoomMapping | None:
-        """Returns a NamedRoomMapping object if valid."""
-        if self.id is None or self.iot_name_id is None:
-            return None
-        return NamedRoomMapping(
-            segment_id=self.id,
-            iot_id=self.iot_name_id,
-            raw_name=self.iot_name,
-        )
-
 
 @dataclass
 class MultiMapsListMapInfoBakMaps(RoborockBase):
@@ -735,15 +734,6 @@ class MultiMapsListMapInfo(RoborockBase):
     def mapFlag(self) -> int:
         """Alias for map_flag, returns the map flag as an integer."""
         return self.map_flag
-
-    @property
-    def rooms_map(self) -> dict[int, NamedRoomMapping]:
-        """Returns a dictionary of room mappings by segment id."""
-        return {
-            room.id: mapping
-            for room in self.rooms or ()
-            if room.id is not None and (mapping := room.named_room_mapping) is not None
-        }
 
 
 @dataclass
@@ -767,7 +757,7 @@ class DustCollectionMode(RoborockBase):
 
 @dataclass
 class WashTowelMode(RoborockBase):
-    wash_mode: WashTowelModes | None = None
+    wash_mode: RoborockDockWashTowelModeCode | None = None
 
 
 @dataclass

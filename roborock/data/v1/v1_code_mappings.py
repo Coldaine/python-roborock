@@ -1,5 +1,3 @@
-from typing import Self
-
 from ..code_mappings import RoborockEnum
 
 
@@ -93,7 +91,7 @@ class RoborockStartType(RoborockEnum):
 
 class RoborockDssCodes(RoborockEnum):
     @classmethod
-    def _missing_(cls: type[Self], key) -> Self:
+    def _missing_(cls: type[RoborockEnum], key) -> RoborockEnum:
         # If the calculated value is not provided, then it should be viewed as okay.
         # As the math will sometimes result in you getting numbers that don't matter.
         return cls.okay  # type: ignore
@@ -576,6 +574,7 @@ class RoborockDockTypeCode(RoborockEnum):
     saros_r10_dock = 16
     qrevo_curv_dock = 17
     saros_10_dock = 18
+    qrevo_curv_2_flow_dock = 29
 
 
 class RoborockDockDustCollectionModeCode(RoborockEnum):
@@ -587,6 +586,17 @@ class RoborockDockDustCollectionModeCode(RoborockEnum):
     light = 1
     balanced = 2
     max = 4
+
+
+class RoborockDockWashTowelModeCode(RoborockEnum):
+    """Describes the wash towel mode of the vacuum cleaner."""
+
+    # TODO: Get the correct values for various different docks
+    unknown = -9999
+    light = 0
+    balanced = 1
+    deep = 2
+    smart = 10
 
 
 class RoborockStateCode(RoborockEnum):
