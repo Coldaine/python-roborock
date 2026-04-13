@@ -391,6 +391,13 @@ class NamedRoomMapping(RoomMapping):
     name: str
     """The human-readable name of the room, if available."""
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]):
+        """Create a NamedRoomMapping from current or legacy payloads."""
+        if isinstance(data, dict) and "name" not in data:
+            data = {**data, "name": data.get("raw_name", "")}
+        return super().from_dict(data)
+
 
 @dataclass
 class CombinedMapInfo(RoborockBase):

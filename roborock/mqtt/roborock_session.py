@@ -11,7 +11,8 @@ receiving messages from the vacuum cleaner.
 import asyncio
 import datetime
 import logging
-from collections.abc import Callable
+import ssl
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 import aiomqtt
@@ -235,7 +236,7 @@ class RoborockMqttSession(MqttSession):
             raise
 
     @asynccontextmanager
-    async def _mqtt_client(self, params: MqttParams) -> aiomqtt.Client:
+    async def _mqtt_client(self, params: MqttParams) -> AsyncIterator[aiomqtt.Client]:
         """Connect to the MQTT broker and listen for messages."""
         _LOGGER.debug("Connecting to %s:%s for %s", params.host, params.port, params.username)
         try:
@@ -246,7 +247,11 @@ class RoborockMqttSession(MqttSession):
                 password=params.password,
                 keepalive=int(CLIENT_KEEPALIVE.total_seconds()),
                 protocol=aiomqtt.ProtocolVersion.V5,
-                tls_params=TLSParameters() if params.tls else None,
+                tls_params=TLSParameters(
+                    cert_reqs=ssl.CERT_REQUIRED if params.verify_tls else ssl.CERT_NONE
+                )
+                if params.tls
+                else None,
                 timeout=params.timeout,
                 logger=_MQTT_LOGGER,
             ) as client:

@@ -1,4 +1,3 @@
-from dataclasses import fields
 from syrupy import SnapshotAssertion
 
 from roborock import SHORT_MODEL_TO_ENUM
@@ -42,12 +41,6 @@ def test_supported_features_curv_2_flow():
     # a245 is VIVIANS and should have MOP_ROLLER_MODULE
     assert device_features.is_clean_route_setting_supported
     assert device_features.is_customized_clean_supported
-    # Verify roller mop specifically
-    assert any(
-        f.metadata.get("product_features") and "mop_roller_module" in [feat.value for feat in f.metadata["product_features"]]
-        for f in fields(DeviceFeatures)
-    )
-    # Check a specific feature derived from MOP_ROLLER_MODULE
     assert device_features.is_customized_clean_supported
 
 

@@ -130,6 +130,8 @@ DEVICES = {file.name: json.load(file.open(encoding="utf-8")) for file in TESTDAT
 # Products
 A27_PRODUCT_DATA = PRODUCTS["home_data_product_a27.json"]
 SC01_PRODUCT_DATA = PRODUCTS["home_data_product_sc01.json"]
+# Q7 devices use SC01 product metadata in test fixtures.
+Q7_PRODUCT_DATA = SC01_PRODUCT_DATA
 SS07_PRODUCT_DATA = PRODUCTS["home_data_product_ss07.json"]
 A102_PRODUCT_DATA = PRODUCTS["home_data_product_a102.json"]
 A114_PRODUCT_DATA = PRODUCTS["home_data_product_a114.json"]

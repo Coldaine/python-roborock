@@ -5,6 +5,7 @@ import pytest
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
+from roborock.data import HomeDataDevice, HomeDataProduct
 from roborock.data.b01_q7 import (
     CleanTaskTypeMapping,
     CleanTypeMapping,
@@ -14,11 +15,12 @@ from roborock.data.b01_q7 import (
     WorkStatusMapping,
 )
 from roborock.devices.rpc.b01_q7_channel import send_decoded_command
-from roborock.devices.traits.b01.q7 import Q7PropertiesApi
+from roborock.devices.traits.b01.q7 import Q7PropertiesApi, create
 from roborock.exceptions import RoborockException
 from roborock.protocols.b01_q7_protocol import B01_VERSION, Q7RequestMessage
 from roborock.roborock_message import RoborockB01Props, RoborockMessageProtocol
 from tests.fixtures.channel_fixtures import FakeChannel
+from tests import mock_data
 
 from . import B01MessageBuilder
 
@@ -49,11 +51,6 @@ async def test_q7_api_query_values(
     assert result is not None
     assert result.status == WorkStatusMapping.WAITING_FOR_ORDERS
     # wind might be mapped to SCWindMapping.STANDARD (2)
-    # let's verify checking the prop definition in B01Props
-    # wind: SCWindMapping | None = None
-    # SCWindMapping.STANDARD is 2 ('balanced')
-    from roborock.data.b01_q7 import SCWindMapping
-
     assert result.wind == SCWindMapping.STANDARD
 
     assert len(fake_channel.published_messages) == 1
@@ -109,8 +106,6 @@ async def test_send_decoded_command_non_dict_response(fake_channel: FakeChannel,
     """Test validity of handling non-dict responses (should not timeout)."""
     message = message_builder.build("some_string_error")
     fake_channel.response_queue.append(message)
-
-    # Use a random string for command type to avoid needing import
 
     with pytest.raises(RoborockException, match="Unexpected data type for response"):
         await send_decoded_command(fake_channel, Q7RequestMessage(dps=10000, command="prop.get", params=[]))  # type: ignore[arg-type]
@@ -257,3 +252,23 @@ async def test_q7_api_find_me(q7_api: Q7PropertiesApi, fake_channel: FakeChannel
     payload_data = json.loads(unpad(message.payload, AES.block_size))
     assert payload_data["dps"]["10000"]["method"] == "service.find_device"
     assert payload_data["dps"]["10000"]["params"] == {}
+
+
+def test_q7_api_exposes_map_attributes(q7_api: Q7PropertiesApi) -> None:
+    """The Q7 API should expose map attributes on the public surface."""
+    assert hasattr(q7_api, "map")
+    assert hasattr(q7_api, "map_content")
+    assert q7_api.map is not None
+    assert q7_api.map_content is not None
+
+
+def test_q7_api_wires_map_traits_with_device_metadata() -> None:
+    """The Q7 constructor helper should create map traits with metadata."""
+    channel = FakeChannel()
+    device = HomeDataDevice.from_dict(mock_data.Q7_DEVICE_DATA)
+    product = HomeDataProduct.from_dict(mock_data.Q7_PRODUCT_DATA)
+
+    q7_api = create(product, device, channel)
+
+    assert q7_api.map is not None
+    assert q7_api.map_content is not None

@@ -179,6 +179,211 @@ class RoborockContext(Cache):
         self._session_loop: asyncio.AbstractEventLoop | None = None
         self._session_thread: threading.Thread | None = None
         self._device_manager: DeviceConnectionManager | None = None
+        self._virtual_states: dict[str, Any] = {}
+        self._virtual_states_dir: Path = Path("~/.config/roborock/virtual_states/").expanduser()
+
+    def _get_virtual_state_path(self, device_id: str) -> Path:
+        """Get the path for a device's virtual state file."""
+        return self._virtual_states_dir / f"{device_id}.json"
+
+    async def _load_persisted_virtual_state(self, device_id: str) -> Any:
+        """Load persisted virtual state without requiring map data.
+
+        This is used for commands like status/undo/clear after process restart.
+        """
+        from roborock.map import VirtualState
+
+        state_file = self._get_virtual_state_path(device_id)
+        if not state_file.exists():
+            return None
+
+        def _read_state(path: Path) -> dict[str, Any]:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+
+        try:
+            data = await asyncio.to_thread(_read_state, state_file)
+            state = VirtualState.from_dict(data)
+            self._virtual_states[device_id] = state
+            _LOGGER.info(f"Loaded persisted virtual state metadata for {device_id} with {len(state)} edits")
+            return state
+        except (OSError, ValueError, json.JSONDecodeError) as err:
+            _LOGGER.warning(f"Could not load persisted state for {device_id}: {err}")
+            return None
+
+    async def get_virtual_state(self, device_id: str, map_data: Any = None) -> Any:
+        """Get or create a VirtualState for a device with version safety.
+        
+        If a persisted state exists and map_data is provided, attempts to load it.
+        Handles stale states by clearing them and returning a fresh state.
+        """
+        from roborock.map import CoordinateTransformer, VirtualState
+        
+        if device_id in self._virtual_states:
+            state = self._virtual_states[device_id]
+            if map_data is not None and getattr(state, "_base_map", None) is None:
+                # Rehydrate metadata-only state with concrete map data.
+                state_file = self._get_virtual_state_path(device_id)
+                if state_file.exists():
+                    try:
+                        state = await VirtualState.load(state_file, map_data)
+                        self._virtual_states[device_id] = state
+                        _LOGGER.info(f"Rehydrated persisted virtual state for {device_id} with map data")
+                    except (ValueError, FileNotFoundError) as err:
+                        _LOGGER.warning(f"Could not rehydrate persisted state for {device_id}: {err}")
+                        transformer = CoordinateTransformer.from_map_data(map_data)
+                        state = VirtualState(map_data, transformer)
+                        self._virtual_states[device_id] = state
+                else:
+                    transformer = CoordinateTransformer.from_map_data(map_data)
+                    state = VirtualState(map_data, transformer)
+                    self._virtual_states[device_id] = state
+
+            # If map_data is provided, check for state drift
+            if map_data is not None and state._base_map is not None:
+                # Simple version check: room count or timestamp
+                curr_rooms = set(map_data.rooms.keys()) if map_data.rooms else set()
+                base_rooms = set(state._base_map.rooms.keys()) if state._base_map.rooms else set()
+                
+                if curr_rooms != base_rooms:
+                    click.echo(f"WARNING: Device map for {device_id} has changed. Local edits may be invalid.")
+                    if click.confirm("Clear pending edits and refresh state?"):
+                        del self._virtual_states[device_id]
+                    else:
+                        click.echo("Continuing with potentially stale state (DANGEROUS)")
+            
+        if device_id not in self._virtual_states:
+            if map_data is None:
+                return await self._load_persisted_virtual_state(device_id)
+
+            transformer = CoordinateTransformer.from_map_data(map_data)
+            state_file = self._get_virtual_state_path(device_id)
+            
+            # Try to load existing state
+            if state_file.exists():
+                try:
+                    state = await VirtualState.load(state_file, map_data)
+                    _LOGGER.info(f"Loaded persisted virtual state for {device_id} with {len(state)} edits")
+                except (ValueError, FileNotFoundError) as e:
+                    _LOGGER.warning(f"Could not load persisted state for {device_id}: {e}")
+                    # Create fresh state
+                    state = VirtualState(map_data, transformer)
+            else:
+                state = VirtualState(map_data, transformer)
+                
+            self._virtual_states[device_id] = state
+
+        return self._virtual_states[device_id]
+
+    async def save_virtual_state(self, device_id: str) -> None:
+        """Save the virtual state for a device to disk.
+        
+        Only saves if there are pending edits.
+        """
+        if device_id not in self._virtual_states:
+            return
+            
+        state = self._virtual_states[device_id]
+        state_file = self._get_virtual_state_path(device_id)
+        if not state.has_pending_edits:
+            if state_file.exists():
+                try:
+                    state_file.unlink()
+                    _LOGGER.debug(f"Removed stale virtual state for {device_id}")
+                except FileNotFoundError:
+                    pass
+            return
+            
+        await state.save(state_file)
+        _LOGGER.debug(f"Saved virtual state for {device_id}")
+
+    async def save_virtual_states(self) -> None:
+        """Save all virtual states to disk.
+        
+        Called on exit to persist pending edits.
+        """
+        self._virtual_states_dir.mkdir(parents=True, exist_ok=True)
+        
+        for device_id, state in self._virtual_states.items():
+            state_file = self._get_virtual_state_path(device_id)
+            if state.has_pending_edits:
+                try:
+                    await state.save(state_file)
+                    _LOGGER.info(f"Saved virtual state for {device_id} with {len(state)} edits")
+                except Exception as e:
+                    _LOGGER.error(f"Failed to save virtual state for {device_id}: {e}")
+            elif state_file.exists():
+                try:
+                    state_file.unlink()
+                    _LOGGER.info(f"Removed stale virtual state for {device_id}")
+                except Exception as e:
+                    _LOGGER.error(f"Failed to remove stale virtual state for {device_id}: {e}")
+
+    def load_virtual_states(self, available_devices: list[str] | None = None) -> dict[str, dict]:
+        """Load and validate virtual states from disk on startup.
+        
+        Args:
+            available_devices: Optional list of currently available device IDs.
+                              States for unavailable devices are reported as stale.
+                              
+        Returns:
+            Dictionary mapping device_id to load status info:
+            - "loaded": bool - Whether state was successfully loaded
+            - "edits": int - Number of edits in loaded state (0 if not loaded)
+            - "stale": bool - True if device not in available_devices
+            - "error": str - Error message if loading failed
+        """
+        import json
+        
+        results: dict[str, dict] = {}
+        
+        if not self._virtual_states_dir.exists():
+            return results
+        
+        for state_file in self._virtual_states_dir.glob("*.json"):
+            device_id = state_file.stem
+            
+            # Check if device is available
+            if available_devices is not None and device_id not in available_devices:
+                results[device_id] = {
+                    "loaded": False,
+                    "edits": 0,
+                    "stale": True,
+                    "error": "Device not currently available"
+                }
+                continue
+            
+            # Just check file is valid JSON and has expected structure
+            try:
+                with open(state_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                edit_count = len(data.get("edits", []))
+                map_hash = data.get("map_hash")
+                map_flag = data.get("map_flag")
+                
+                results[device_id] = {
+                    "loaded": True,
+                    "edits": edit_count,
+                    "stale": False,
+                    "map_hash": map_hash,
+                    "map_flag": map_flag,
+                    "timestamp": data.get("timestamp"),
+                    "error": None
+                }
+                
+                _LOGGER.info(f"Found persisted state for {device_id}: {edit_count} edits")
+                
+            except Exception as e:
+                results[device_id] = {
+                    "loaded": False,
+                    "edits": 0,
+                    "stale": False,
+                    "error": str(e)
+                }
+                _LOGGER.error(f"Failed to validate state file for {device_id}: {e}")
+        
+        return results
 
     def reload(self):
         if self.roborock_file.is_file():
@@ -255,6 +460,9 @@ class RoborockContext(Cache):
 
     async def cleanup(self):
         """Clean up resources (mainly for session mode)."""
+        # Save virtual states before cleanup
+        await self.save_virtual_states()
+        
         if self._device_manager:
             await self._device_manager.close()
             self._device_manager = None
@@ -329,9 +537,9 @@ async def login(ctx, email, password, reauth):
         user_data = await client.pass_login(password)
     else:
         print(f"Requesting code for {email}")
-        await client.request_code()
+        await client.request_code_v4()
         code = click.prompt("A code has been sent to your email, please enter the code", type=str)
-        user_data = await client.code_login(code)
+        user_data = await client.code_login_v4(code)
         print("Login successful")
     context.update(ConnectionCache(user_data=user_data, email=email))
 
@@ -779,6 +987,16 @@ def _parse_b01_q10_command(cmd: str) -> B01_Q10_DP:
     raise RoborockException(f"Invalid command {cmd} for B01_Q10 device")
 
 
+def _parse_command_params(params: str | None) -> Any:
+    """Parse JSON params for command payloads."""
+    if params is None:
+        return None
+    try:
+        return json.loads(params)
+    except json.JSONDecodeError as err:
+        raise RoborockException(f"Invalid JSON for --params: {err.msg}") from err
+
+
 @click.command()
 @click.option("--device_id", required=True)
 @click.option("--cmd", required=True)
@@ -789,15 +1007,16 @@ async def command(ctx, cmd, device_id, params):
     context: RoborockContext = ctx.obj
     device_manager = await context.get_device_manager()
     device = await device_manager.get_device(device_id)
+    parsed_params = _parse_command_params(params)
     if device.v1_properties is not None:
         command_trait: Trait = device.v1_properties.command
-        result = await command_trait.send(cmd, json.loads(params) if params is not None else None)
+        result = await command_trait.send(cmd, parsed_params)
         if result:
             click.echo(dump_json(result))
     elif device.b01_q10_properties is not None:
         cmd_value = _parse_b01_q10_command(cmd)
         command_trait: Trait = device.b01_q10_properties.command
-        await command_trait.send(cmd_value, json.loads(params) if params is not None else None)
+        await command_trait.send(cmd_value, parsed_params)
         click.echo("Command sent successfully; Enable debug logging (-d) to see responses.")
         # Q10 commands don't have a specific time to respond, so wait a bit and log
         await asyncio.sleep(5)
@@ -1120,7 +1339,7 @@ def update_docs(data_file: str, output_file: str):
         product_features_map[model] = current_product_data
 
     # --- Helper function to write the markdown table ---
-    def write_markdown_table(product_features: dict[str, dict[str, any]], all_features: set[str]):
+    def write_markdown_table(product_features: dict[str, dict[str, Any]], all_features: set[str]):
         """Writes the data into a markdown table (products as columns)."""
         sorted_products = sorted(product_features.keys())
         special_rows = [
@@ -1298,7 +1517,12 @@ async def q10_empty_dustbin(ctx: click.Context, device_id: str) -> None:
 
 @session.command()
 @click.option("--device_id", required=True, help="Device ID")
-@click.option("--mode", required=True, type=click.Choice(["bothwork", "onlysweep", "onlymop"]), help="Clean mode")
+@click.option(
+    "--mode",
+    required=True,
+    type=click.Choice(["bothwork", "vac_and_mop", "onlysweep", "vacuum", "onlymop", "mop"], case_sensitive=False),
+    help="Clean mode",
+)
 @click.pass_context
 @async_command
 async def q10_set_clean_mode(ctx: click.Context, device_id: str, mode: str) -> None:
@@ -1306,7 +1530,17 @@ async def q10_set_clean_mode(ctx: click.Context, device_id: str, mode: str) -> N
     context: RoborockContext = ctx.obj
     try:
         trait = await _q10_vacuum_trait(context, device_id)
-        clean_mode = YXCleanType.from_value(mode)
+        mode_aliases = {
+            "vac_and_mop": YXCleanType.BOTH_WORK,
+            "bothwork": YXCleanType.BOTH_WORK,
+            "vacuum": YXCleanType.ONLY_SWEEP,
+            "onlysweep": YXCleanType.ONLY_SWEEP,
+            "mop": YXCleanType.ONLY_MOP,
+            "onlymop": YXCleanType.ONLY_MOP,
+        }
+        clean_mode = mode_aliases.get(mode.lower())
+        if clean_mode is None:
+            raise RoborockException(f"Unsupported clean mode: {mode}")
         await trait.set_clean_mode(clean_mode)
         click.echo(f"Clean mode set to {mode}")
     except RoborockUnsupportedFeature:
@@ -1337,6 +1571,682 @@ async def q10_set_fan_level(ctx: click.Context, device_id: str, level: str) -> N
         click.echo("Device does not support B01 Q10 protocol. Is it a Q10?")
     except RoborockException as e:
         click.echo(f"Error: {e}")
+
+
+# =============================================================================
+# Map Editor Helpers
+# =============================================================================
+
+def _generate_preview(map_data, virtual_state, transformer, output_path: str = "temp_preview.png") -> str | None:
+    """Generate a preview image with edits overlaid in red."""
+    try:
+        from PIL import Image, ImageDraw
+        from roborock.map.geometry import Point
+        
+        # Get base map image if available
+        if hasattr(map_data, 'image') and map_data.image:
+            img = map_data.image.copy()
+        else:
+            # Create blank image from dimensions
+            width = getattr(map_data, 'width', 800)
+            height = getattr(map_data, 'height', 600)
+            img = Image.new('RGB', (width, height), color=(240, 240, 240))
+        
+        draw = ImageDraw.Draw(img)
+        
+        # Draw each pending edit in red
+        from roborock.map.editor import EditType
+        for edit in virtual_state.pending_edits:
+            if edit.edit_type == EditType.SPLIT_ROOM:
+                # Draw split line in red
+                p1 = transformer.robot_to_image(Point(edit.x1, edit.y1))
+                p2 = transformer.robot_to_image(Point(edit.x2, edit.y2))
+                draw.line([(int(p1.x), int(p1.y)), (int(p2.x), int(p2.y))], fill=(255, 0, 0), width=3)
+            elif edit.edit_type in [EditType.VIRTUAL_WALL, EditType.NO_GO_ZONE]:
+                # Draw virtual walls/no-go zones in red
+                p1 = transformer.robot_to_image(Point(edit.x1, edit.y1))
+                p2 = transformer.robot_to_image(Point(edit.x2, edit.y2))
+                if edit.edit_type == EditType.VIRTUAL_WALL:
+                    draw.line([(int(p1.x), int(p1.y)), (int(p2.x), int(p2.y))], fill=(255, 0, 0), width=3)
+                else:
+                    # No-go zone - draw rectangle
+                    draw.rectangle([(int(p1.x), int(p1.y)), (int(p2.x), int(p2.y))], outline=(255, 0, 0), width=3)
+        
+        img.save(output_path)
+        return output_path
+    except Exception as e:
+        click.echo(f"Warning: Could not generate preview: {e}")
+        return None
+
+
+async def _execute_edit(device, virtual_state, map_flag: int) -> bool:
+    """Execute virtual state edits on the device with verification and transactional safety."""
+    from roborock.map import MapVerifier, TranslationLayer
+
+    click.echo("\nExecuting edit...")
+
+    # Determine protocol from device info
+    protocol = "v1"
+    if hasattr(device, 'device_info') and device.device_info:
+        pv = getattr(device.device_info, 'pv', '')
+        if pv == "B01":
+            # For now, assume b01_q7 for B01 devices. Later can expand to check product.model
+            protocol = "b01_q7"
+        elif pv == "A01":
+            click.echo("ERROR: Map editing for A01 devices not yet supported.")
+            return False
+
+    # Get command trait from device
+    # For B01, command is currently on device.b01.command, for V1 it's on v1_properties.command
+    # To keep it robust, we look for command trait directly if possible.
+    command_trait = None
+    map_content_trait = None
+
+    if device.v1_properties:
+        command_trait = getattr(device.v1_properties, 'command', None)
+        map_content_trait = getattr(device.v1_properties, 'map_content', None)
+    elif getattr(device, "b01_q10_properties", None) is not None:
+        command_trait = device.b01_q10_properties.command
+        map_content_trait = getattr(device.b01_q10_properties, "map_content", None)
+    else:
+        # Check if it has a command trait exposed via other traits (e.g. b01)
+        # Assuming we can find it:
+        for prop_name in ['b01', 'q10', 'q7']:
+            prop = getattr(device, prop_name, None)
+            if prop and hasattr(prop, 'command'):
+                command_trait = prop.command
+                break
+
+    if not command_trait:
+        click.echo("ERROR: Device does not have an exposed command trait")
+        return False
+
+    # Create translation layer with proper arguments
+    translation = TranslationLayer(
+        command_trait=command_trait,
+        map_content_trait=map_content_trait,
+        protocol=protocol,
+    )
+
+    click.echo("Creating pre-sync map backup...")
+    backup_success = await translation.create_map_backup(map_flag)
+    if not backup_success:
+        click.echo("WARNING: Failed to create map backup. Proceeding with caution.")
+
+    try:
+        # Execute edits
+        results = await translation.execute_edits(virtual_state, map_flag)
+
+        if not results:
+            click.echo("ERROR: No edits were executed")
+            return False
+
+        # Check if any edits failed
+        failed_results = [res for res in results if not res.success]
+        if failed_results:
+            click.echo(f"ERROR: {len(failed_results)} edit(s) failed:")
+            for failed_res in failed_results:
+                click.echo(f"  - {failed_res.edit.edit_type.name}: {failed_res.error}")
+
+            click.echo("Rolling back changes...")
+            await translation.restore_map_backup(map_flag)
+            return False
+
+        click.echo(f"  Translation layer completed: {len(results)} edit(s)")
+
+    except Exception as e:
+        click.echo(f"ERROR: Exception during execution: {e}")
+        click.echo("Rolling back changes...")
+        await translation.restore_map_backup(map_flag)
+        return False
+
+    # Verify the edit was applied
+    click.echo("\nVerifying edit was applied...")
+    if map_content_trait:
+        verifier = MapVerifier(map_content_trait=map_content_trait)
+        verification_results = await verifier.verify_edits(virtual_state)
+
+        if not verification_results:
+            click.echo("  WARNING: Verification returned no results; rolling back")
+            await translation.restore_map_backup(map_flag)
+            return False
+
+        all_verified = all(v_res.verified for v_res in verification_results)
+        if all_verified:
+            click.echo("  SUCCESS: All edits verified on device")
+            await virtual_state.clear()
+            return True
+        else:
+            failed_verifications = [v_res for v_res in verification_results if not v_res.verified]
+            click.echo(f"  WARNING: {len(failed_verifications)} edit(s) could not be verified")
+            for failed_v_res in failed_verifications:
+                click.echo(f"    - {failed_v_res.edit_type}: {failed_v_res.mismatch_reason}")
+            await translation.restore_map_backup(map_flag)
+            return False
+    else:
+        click.echo("  WARNING: Map content trait unavailable, skipping verification")
+        await virtual_state.clear()
+        return True
+
+# =============================================================================
+# Map Editor Commands
+# =============================================================================
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--room", required=True, help="Room name to split")
+@click.option("--direction", type=click.Choice(["vertical", "horizontal"]), default="vertical")
+@click.option("--ratio", type=float, default=0.5, help="Split position (0.0-1.0)")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
+@click.pass_context
+@async_command
+async def split_room(ctx, device_id: str, room: str, direction: str, ratio: float, apply: bool, preview: bool):
+    """Split a room into two segments."""
+    from roborock.map import (
+        CoordinateTransformer,
+        MapVerifier,
+        SplitRoomEdit,
+        TranslationLayer,
+        VirtualState,
+        calculate_split_line,
+    )
+    from roborock.map.geometry import BoundingBox
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    # Get current map
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+
+    # Find room by name
+    target_room = None
+    for room_id, r in (map_data.rooms or {}).items():
+        room_name = getattr(r, "name", f"Room {room_id}")
+        if room_name.lower() == room.lower():
+            target_room = r
+            target_room_id = room_id
+            break
+
+    if target_room is None:
+        click.echo(f"Room '{room}' not found. Available rooms:")
+        for room_id, r in (map_data.rooms or {}).items():
+            room_name = getattr(r, "name", f"Room {room_id}")
+            click.echo(f"  - {room_name} (ID: {room_id})")
+        return
+
+    # Create coordinate transformer
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    if transformer is None:
+        click.echo("Failed to create coordinate transformer")
+        return
+
+    # Calculate split line
+    room_bbox = BoundingBox(
+        min_x=target_room.x0,
+        max_x=target_room.x1,
+        min_y=target_room.y0,
+        max_y=target_room.y1,
+    )
+    split_line = calculate_split_line(room_bbox, direction, ratio)
+
+    # Create virtual state and add edit
+    virtual_state = await context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
+
+    edit = SplitRoomEdit(
+        segment_id=target_room_id,
+        x1=split_line.p1.x,
+        y1=split_line.p1.y,
+        x2=split_line.p2.x,
+        y2=split_line.p2.y,
+    )
+
+    success, error = await virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created split edit for room '{room}':")
+    click.echo(f"  Line: ({edit.x1:.0f}, {edit.y1:.0f}) -> ({edit.x2:.0f}, {edit.y2:.0f})")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--rooms", required=True, help="Comma-separated room names to merge")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
+@click.pass_context
+@async_command
+async def merge_rooms(ctx, device_id: str, rooms: str, apply: bool, preview: bool):
+    """Merge multiple rooms into one."""
+    from roborock.map import (
+        CoordinateTransformer,
+        MergeRoomsEdit,
+        VirtualState,
+    )
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+    room_names = [r.strip() for r in rooms.split(",")]
+
+    # Find room IDs
+    segment_ids = []
+    for room_name in room_names:
+        found = False
+        for room_id, r in (map_data.rooms or {}).items():
+            name = getattr(r, "name", f"Room {room_id}")
+            if name.lower() == room_name.lower():
+                segment_ids.append(room_id)
+                found = True
+                break
+        if not found:
+            click.echo(f"Room '{room_name}' not found")
+            return
+
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    virtual_state = await context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
+
+    edit = MergeRoomsEdit(segment_ids=segment_ids)
+
+    success, error = await virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created merge edit for rooms: {room_names}")
+    click.echo(f"  Segment IDs: {segment_ids}")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--room", required=True, help="Room name")
+@click.option("--new-name", required=True, help="New room name")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
+@click.pass_context
+@async_command
+async def rename_room(ctx, device_id: str, room: str, new_name: str, apply: bool, preview: bool):
+    """Rename a room."""
+    from roborock.map import (
+        CoordinateTransformer,
+        RenameRoomEdit,
+        VirtualState,
+    )
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+
+    # Find room
+    target_room_id = None
+    old_name = None
+    for room_id, r in (map_data.rooms or {}).items():
+        name = getattr(r, "name", f"Room {room_id}")
+        if name.lower() == room.lower():
+            target_room_id = room_id
+            old_name = name
+            break
+
+    if target_room_id is None:
+        click.echo(f"Room '{room}' not found")
+        return
+
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    virtual_state = await context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
+
+    edit = RenameRoomEdit(
+        segment_id=target_room_id,
+        new_name=new_name,
+        old_name=old_name or "",
+    )
+
+    success, error = await virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created rename edit: '{old_name}' -> '{new_name}'")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--x1", type=int, required=True, help="Wall start X (mm)")
+@click.option("--y1", type=int, required=True, help="Wall start Y (mm)")
+@click.option("--x2", type=int, required=True, help="Wall end X (mm)")
+@click.option("--y2", type=int, required=True, help="Wall end Y (mm)")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
+@click.pass_context
+@async_command
+async def add_virtual_wall(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int, apply: bool, preview: bool):
+    """Add a virtual wall."""
+    from roborock.map import (
+        CoordinateTransformer,
+        VirtualState,
+        VirtualWallEdit,
+    )
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    virtual_state = await context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
+
+    edit = VirtualWallEdit(x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2))
+
+    success, error = await virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created virtual wall edit: ({x1}, {y1}) -> ({x2}, {y2})")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.option("--x1", type=int, required=True, help="Zone min X (mm)")
+@click.option("--y1", type=int, required=True, help="Zone min Y (mm)")
+@click.option("--x2", type=int, required=True, help="Zone max X (mm)")
+@click.option("--y2", type=int, required=True, help="Zone max Y (mm)")
+@click.option("--apply", is_flag=True, help="Apply the edit to the device")
+@click.option("--preview", is_flag=True, default=True, help="Generate preview image")
+@click.pass_context
+@async_command
+async def add_no_go_zone(ctx, device_id: str, x1: int, y1: int, x2: int, y2: int, apply: bool, preview: bool):
+    """Add a no-go zone."""
+    from roborock.map import (
+        CoordinateTransformer,
+        NoGoZoneEdit,
+        VirtualState,
+    )
+
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    if device.v1_properties is None:
+        click.echo("Device does not support V1 protocol")
+        return
+
+    map_trait = device.v1_properties.map_content
+    await map_trait.refresh()
+
+    if not map_trait.map_data:
+        click.echo("No map data available")
+        return
+
+    map_data = map_trait.map_data
+    transformer = CoordinateTransformer.from_map_data(map_data)
+    virtual_state = await context.get_virtual_state(device_id, map_data)
+    if virtual_state is None:
+        click.echo("Failed to initialize virtual state")
+        return
+
+    edit = NoGoZoneEdit(x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2))
+
+    success, error = await virtual_state.add_edit(edit)
+    if not success:
+        click.echo(f"Failed to create edit: {error}")
+        return
+
+    click.echo(f"Created no-go zone edit: ({x1}, {y1}) -> ({x2}, {y2})")
+    click.echo(f"  Edit ID: {edit.edit_id}")
+
+    # Generate preview image
+    if preview:
+        preview_path = _generate_preview(map_data, virtual_state, transformer, "temp_preview.png")
+        if preview_path:
+            click.echo(f"  Preview: {preview_path}")
+
+    # Execute if --apply flag is set
+    if apply:
+        executed = await _execute_edit(device, virtual_state, map_data.map_flag or 0)
+        if executed:
+            await context.save_virtual_state(device_id)
+    else:
+        click.echo("\nUse --apply flag to execute the edit")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_status(ctx, device_id: str):
+    """Show pending edits in the virtual state."""
+    from roborock.map.editor import (
+        MergeRoomsEdit,
+        NoGoZoneEdit,
+        RenameRoomEdit,
+        SplitRoomEdit,
+        VirtualWallEdit,
+    )
+    
+    context: RoborockContext = ctx.obj
+    virtual_state = await context.get_virtual_state(device_id)
+
+    if not virtual_state or not virtual_state.has_pending_edits:
+        click.echo("No pending edits")
+        return
+
+    click.echo(f"Pending edits for device {device_id}:")
+    for i, edit in enumerate(virtual_state.pending_edits):
+        details = ""
+        if isinstance(edit, VirtualWallEdit):
+            details = f"({edit.x1:.0f}, {edit.y1:.0f}) -> ({edit.x2:.0f}, {edit.y2:.0f})"
+        elif isinstance(edit, NoGoZoneEdit):
+            details = f"[{edit.x1:.0f}, {edit.y1:.0f}, {edit.x2:.0f}, {edit.y2:.0f}]"
+        elif isinstance(edit, SplitRoomEdit):
+            details = f"Room {edit.segment_id} @ ({edit.x1:.0f}, {edit.y1:.0f}) -> ({edit.x2:.0f}, {edit.y2:.0f})"
+        elif isinstance(edit, MergeRoomsEdit):
+            details = f"Rooms: {edit.segment_ids}"
+        elif isinstance(edit, RenameRoomEdit):
+            details = f"Room {edit.segment_id}: '{edit.old_name}' -> '{edit.new_name}'"
+            
+        click.echo(f"  {i+1}. {edit.edit_type.name:15} {details} (Status: {edit.status.name})")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_sync(ctx, device_id: str):
+    """Sync all pending edits to the device."""
+    context: RoborockContext = ctx.obj
+    virtual_state = await context.get_virtual_state(device_id)
+
+    if not virtual_state or not virtual_state.has_pending_edits:
+        click.echo("No pending edits to sync")
+        return
+
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+
+    # We need the map_flag from the base map
+    map_flag = virtual_state._base_map.map_flag if virtual_state._base_map else 0
+
+    success = await _execute_edit(device, virtual_state, map_flag)
+    if success:
+        click.echo("Sync successful. Clearing pending edits.")
+        await virtual_state.clear()
+        await context.save_virtual_state(device_id)
+    else:
+        click.echo("Sync failed or partially completed.")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_undo(ctx, device_id: str):
+    """Undo the last pending edit."""
+    context: RoborockContext = ctx.obj
+    virtual_state = await context.get_virtual_state(device_id)
+
+    if not virtual_state or not virtual_state.can_undo:
+        click.echo("Nothing to undo")
+        return
+
+    edit = await virtual_state.undo()
+    click.echo(f"Undone: {edit.edit_type.name}")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_redo(ctx, device_id: str):
+    """Redo the last undone edit."""
+    context: RoborockContext = ctx.obj
+    virtual_state = await context.get_virtual_state(device_id)
+
+    if not virtual_state or not virtual_state.can_redo:
+        click.echo("Nothing to redo")
+        return
+
+    edit = await virtual_state.redo()
+    click.echo(f"Redone: {edit.edit_type.name}")
+
+
+@session.command()
+@click.option("--device_id", required=True, help="Device ID")
+@click.pass_context
+@async_command
+async def map_edit_clear(ctx, device_id: str):
+    """Clear all pending edits."""
+    context: RoborockContext = ctx.obj
+    virtual_state = await context.get_virtual_state(device_id)
+
+    if virtual_state:
+        await virtual_state.clear()
+        await context.save_virtual_state(device_id)
+        click.echo("Cleared all pending edits")
+    else:
+        click.echo("No virtual state found for this device")
 
 
 def main():

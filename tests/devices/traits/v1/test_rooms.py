@@ -70,3 +70,18 @@ async def test_refresh_rooms_trait(
     # Verify the RPC call was made correctly
     assert mock_rpc_channel.send_command.call_count == 1
     mock_rpc_channel.send_command.assert_any_call(RoborockCommand.GET_ROOM_MAPPING)
+
+
+async def test_refresh_rooms_trait_uses_segment_fallback_for_unknown_iot_id(
+    rooms_trait: RoomsTrait,
+    mock_rpc_channel: AsyncMock,
+) -> None:
+    """Unknown room ids should keep a readable segment-based fallback."""
+    mock_rpc_channel.send_command.side_effect = [[[42, "999999"]]]
+
+    await rooms_trait.refresh()
+
+    assert rooms_trait.rooms
+    assert rooms_trait.rooms[0].segment_id == 42
+    assert rooms_trait.rooms[0].iot_id == "999999"
+    assert rooms_trait.rooms[0].name == "Room 42"
