@@ -65,6 +65,8 @@ class DeviceFeaturesTrait(DeviceFeatures, common.V1TraitMixin):
         """Parse the response from the device into a DeviceFeatures instance."""
         if not isinstance(response, list):
             raise ValueError(f"Unexpected AppInitStatus response format: {type(response)}")
+        if not response:
+            raise ValueError("Empty AppInitStatus response")
         app_status = AppInitStatus.from_dict(response[0])
         return DeviceFeatures.from_feature_flags(
             new_feature_info=app_status.new_feature_info,
