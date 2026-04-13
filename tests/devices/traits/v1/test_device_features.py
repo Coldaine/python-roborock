@@ -31,3 +31,12 @@ async def test_is_attribute_supported(
 
     is_supported = {field.value: device_features_trait.is_field_supported(StatusTrait, field) for field in StatusField}
     assert is_supported == snapshot
+
+
+async def test_parse_response_rejects_empty_list(device: RoborockDevice) -> None:
+    """Device feature responses must contain at least one AppInitStatus payload."""
+    assert device.v1_properties is not None
+    assert device.v1_properties.device_features is not None
+
+    with pytest.raises(ValueError, match="Empty AppInitStatus response"):
+        device.v1_properties.device_features._parse_response([])

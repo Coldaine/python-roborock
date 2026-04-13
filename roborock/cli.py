@@ -975,7 +975,7 @@ async def network_info(ctx, device_id: str):
 def _parse_b01_q10_command(cmd: str) -> B01_Q10_DP:
     """Parse B01_Q10 command from either enum name or value."""
     try:
-        return B01_Q10_DP(int(cmd))
+        return B01_Q10_DP.from_code(int(cmd))
     except ValueError:
         try:
             return B01_Q10_DP.from_name(cmd)

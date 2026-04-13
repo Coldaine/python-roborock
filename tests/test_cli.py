@@ -3,9 +3,9 @@ from dataclasses import dataclass
 
 from click.testing import CliRunner
 
-from roborock.cli import RoborockContext, cli
+from roborock.cli import RoborockContext, _parse_b01_q10_command, cli
+from roborock.data.b01_q10.b01_q10_code_mappings import B01_Q10_DP, YXCleanType
 from roborock.data import UserData
-from roborock.data.b01_q10.b01_q10_code_mappings import YXCleanType
 from tests.mock_data import USER_DATA
 
 
@@ -70,3 +70,7 @@ def test_q10_clean_mode_accepts_documented_aliases(monkeypatch) -> None:
     assert result.exit_code == 0
     assert "Clean mode set to vac_and_mop" in result.output
     assert captured == [YXCleanType.BOTH_WORK]
+
+
+def test_parse_b01_q10_command_accepts_numeric_codes() -> None:
+    assert _parse_b01_q10_command(str(B01_Q10_DP.SEEK.code)) == B01_Q10_DP.SEEK
