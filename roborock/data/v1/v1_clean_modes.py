@@ -132,6 +132,7 @@ def get_water_modes(features: DeviceFeatures) -> list[WaterModes]:
     # support values in between. But for now we will just support the main values.
     if features.is_water_slide_mode_supported:
         return [
+            WaterModes.OFF,
             WaterModes.PURE_WATER_FLOW_START,
             WaterModes.PURE_WATER_FLOW_SMALL,
             WaterModes.PURE_WATER_FLOW_MIDDLE,

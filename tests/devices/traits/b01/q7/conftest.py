@@ -5,7 +5,9 @@ from unittest.mock import patch
 
 import pytest
 
-from roborock.devices.traits.b01.q7 import Q7PropertiesApi
+from roborock.data import HomeDataDevice, HomeDataProduct
+from roborock.devices.traits.b01.q7 import Q7PropertiesApi, create
+from tests import mock_data
 from tests.fixtures.channel_fixtures import FakeChannel
 
 from . import B01MessageBuilder
@@ -18,7 +20,9 @@ def fake_channel_fixture() -> FakeChannel:
 
 @pytest.fixture(name="q7_api")
 def q7_api_fixture(fake_channel: FakeChannel) -> Q7PropertiesApi:
-    return Q7PropertiesApi(fake_channel)  # type: ignore[arg-type]
+    device = HomeDataDevice.from_dict(mock_data.Q7_DEVICE_DATA)
+    product = HomeDataProduct.from_dict(mock_data.SC01_PRODUCT_DATA)
+    return create(product, device, fake_channel)
 
 
 @pytest.fixture(name="expected_msg_id", autouse=True)

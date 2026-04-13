@@ -9,7 +9,7 @@ from roborock.devices.device import RoborockDevice
 from roborock.devices.traits.v1.wash_towel_mode import WashTowelModeTrait
 from roborock.roborock_typing import RoborockCommand
 
-WASH_TOWEL_MODE_DATA = [{"wash_mode": RoborockDockWashTowelModeCode.smart}]
+WASH_TOWEL_MODE_DATA = [{"wash_mode": RoborockDockWashTowelModeCode.smart.value}]
 
 
 @pytest.fixture(name="wash_towel_mode")

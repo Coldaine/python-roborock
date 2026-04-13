@@ -9,9 +9,6 @@ from roborock.roborock_typing import RoborockCommand
 
 _LOGGER = logging.getLogger(__name__)
 
-_DEFAULT_NAME = "Unknown"
-
-
 @dataclass
 class Rooms(RoborockBase):
     """Dataclass representing a collection of room mappings."""
@@ -50,7 +47,11 @@ class RoomsTrait(Rooms, common.V1TraitMixin):
         segment_pairs = _extract_segment_pairs(response)
         return Rooms(
             rooms=[
-                NamedRoomMapping(segment_id=segment_id, iot_id=iot_id, name=name_map.get(iot_id, _DEFAULT_NAME))
+                NamedRoomMapping(
+                    segment_id=segment_id,
+                    iot_id=iot_id,
+                    name=name_map.get(iot_id, f"Room {segment_id}"),
+                )
                 for segment_id, iot_id in segment_pairs
             ]
         )
@@ -68,7 +69,7 @@ def _extract_segment_pairs(response: list) -> list[tuple[int, str]]:
     would be helpful.
     """
     if len(response) == 2 and not isinstance(response[0], list):
-        segment_id, iot_id = response[0], response[1]
+        segment_id, iot_id = int(response[0]), str(response[1])
         return [(segment_id, iot_id)]
 
     segment_pairs: list[tuple[int, str]] = []
@@ -76,6 +77,6 @@ def _extract_segment_pairs(response: list) -> list[tuple[int, str]]:
         if not isinstance(part, list) or len(part) < 2:
             _LOGGER.warning("Unexpected room mapping entry format: %r", part)
             continue
-        segment_id, iot_id = part[0], part[1]
+        segment_id, iot_id = int(part[0]), str(part[1])
         segment_pairs.append((segment_id, iot_id))
     return segment_pairs
