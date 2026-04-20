@@ -28,3 +28,4 @@ gha-creds-*.json
 .entire/
 .sisyphus/
 explore_map.png
+PR_DESCRIPTION.md
